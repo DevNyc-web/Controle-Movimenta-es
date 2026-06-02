@@ -1,0 +1,1 @@
+ALTER TABLE public.funcionarios ALTER COLUMN setor DROP NOT NULL;
