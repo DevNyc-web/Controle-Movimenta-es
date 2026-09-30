@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_app/ft/novo")({
 });
 
 const ESCALAS = ["06x18", "18x06", "07x19", "19x07", "08x18", "Outros"];
-const MOTIVOS = ["Falta", "Atestado", "Remanejamento", "Reciclagem"];
+const MOTIVOS = ["Falta", "Atestado", "Remanejamento", "Reciclagem", "Falta de efetivo"];
 
 function NovaMovimentacao() {
   const navigate = useNavigate();
@@ -72,7 +72,7 @@ function NovaMovimentacao() {
         <p className="text-muted-foreground mt-1">Registrar uma movimentação operacional.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-card border border-border rounded-3xl p-8 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-card border border-oak-light rounded-3xl p-8 space-y-6">
         <FuncionarioPicker
           label="Funcionário"
           value={form.funcionario_id}
@@ -94,43 +94,43 @@ function NovaMovimentacao() {
           required
         />
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Data</label>
-            <input type="date" required value={form.data_ft} onChange={set("data_ft")} className="mt-2 w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Data</label>
+            <input type="date" required value={form.data_ft} onChange={set("data_ft")} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20" />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Horas trabalhadas (escala)</label>
-            <select value={form.escala_servico} onChange={set("escala_servico")} className="mt-2 w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Horas trabalhadas (escala)</label>
+            <select value={form.escala_servico} onChange={set("escala_servico")} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20">
               {ESCALAS.map((e) => <option key={e}>{e}</option>)}
             </select>
           </div>
           {form.escala_servico === "Outros" && (
             <div className="col-span-2">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Especifique a escala</label>
-              <input required value={form.escala_outros} onChange={set("escala_outros")} className="mt-2 w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Digite a escala" />
+              <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Especifique a escala</label>
+              <input required value={form.escala_outros} onChange={set("escala_outros")} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20" placeholder="Digite a escala" />
             </div>
           )}
           <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Horas compensadas</label>
-            <input type="number" step="0.5" min="0" value={form.horas_compensadas} onChange={set("horas_compensadas")} className="mt-2 w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+            <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Horas compensadas</label>
+            <input type="number" step="0.5" min="0" value={form.horas_compensadas} onChange={set("horas_compensadas")} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20" />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Motivo da cobertura</label>
-            <select value={form.motivo} onChange={set("motivo")} className="mt-2 w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+            <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Motivo da cobertura</label>
+            <select value={form.motivo} onChange={set("motivo")} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20">
               {MOTIVOS.map((m) => <option key={m}>{m}</option>)}
             </select>
           </div>
         </div>
 
         <div>
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Observações</label>
-          <textarea value={form.observacao} onChange={set("observacao")} rows={3} className="mt-2 w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+          <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Observações</label>
+          <textarea value={form.observacao} onChange={set("observacao")} rows={3} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20" />
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-border">
-          <button type="button" onClick={() => navigate({ to: "/ft" })} className="px-5 py-2.5 text-sm font-medium text-primary hover:bg-accent rounded-xl">Cancelar</button>
-          <button type="submit" disabled={loading} className="px-6 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50">
+        <div className="flex flex-col-reverse gap-3 pt-4 border-t border-oak-light sm:flex-row sm:justify-end">
+          <button type="button" onClick={() => navigate({ to: "/ft" })} className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium text-oak-dark hover:bg-oak-medium/20 rounded-xl">Cancelar</button>
+          <button type="submit" disabled={loading} className="w-full sm:w-auto px-6 py-2.5 bg-oak-dark text-primary-foreground text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50">
             {loading ? "Salvando..." : "Registrar Movimentação"}
           </button>
         </div>

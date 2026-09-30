@@ -1,7 +1,5 @@
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
-import { SetupRequired } from "@/components/SetupRequired";
 import { AuthProvider } from "@/lib/auth";
-import { isSupabaseConfigured } from "@/lib/env";
 import { Toaster } from "@/components/ui/sonner";
 import appCss from "../styles.css?url";
 
@@ -23,11 +21,11 @@ export const Route = createRootRoute({
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: () => (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-canvas px-4">
       <div className="text-center">
-        <h1 className="text-7xl font-light text-primary">404</h1>
+        <h1 className="text-7xl font-light text-oak-dark">404</h1>
         <p className="mt-4 text-muted-foreground">Página não encontrada.</p>
-        <a href="/" className="mt-6 inline-flex rounded-xl bg-primary px-5 py-2.5 text-sm text-primary-foreground">Voltar</a>
+        <a href="/" className="mt-6 inline-flex rounded-xl bg-oak-dark px-5 py-2.5 text-sm text-primary-foreground">Voltar</a>
       </div>
     </div>
   ),
@@ -35,23 +33,14 @@ export const Route = createRootRoute({
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR">
       <head><HeadContent /></head>
-      <body className="min-h-dvh antialiased">{children}<Scripts /></body>
+      <body>{children}<Scripts /></body>
     </html>
   );
 }
 
 function RootComponent() {
-  if (!isSupabaseConfigured()) {
-    return (
-      <>
-        <SetupRequired />
-        <Toaster />
-      </>
-    );
-  }
-
   return (
     <AuthProvider>
       <Outlet />

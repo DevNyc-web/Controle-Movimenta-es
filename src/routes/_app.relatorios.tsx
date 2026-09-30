@@ -197,39 +197,39 @@ function Relatorios() {
         <p className="text-muted-foreground mt-1">Consolidado de Movimentações Operacionais por período.</p>
       </div>
 
-      <div className="bg-card border border-border rounded-3xl p-6 flex flex-wrap items-end gap-5">
-        <div>
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Início</label>
-          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="mt-2 px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+      <div className="bg-card border border-oak-light rounded-3xl p-6 flex flex-col gap-5 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="w-full sm:w-auto">
+          <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Início</label>
+          <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20" />
         </div>
-        <div>
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Fim</label>
-          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="mt-2 px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+        <div className="w-full sm:w-auto">
+          <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Fim</label>
+          <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20" />
         </div>
-        <div>
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Nome</label>
-          <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="buscar..." className="mt-2 px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+        <div className="w-full sm:w-auto">
+          <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Nome</label>
+          <input type="text" value={nome} onChange={(e) => setNome(e.target.value)} placeholder="buscar..." className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20" />
         </div>
-        <div>
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Cargo</label>
-          <select value={cargo} onChange={(e) => setCargo(e.target.value)} className="mt-2 px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <div className="w-full sm:w-auto">
+          <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Cargo</label>
+          <select value={cargo} onChange={(e) => setCargo(e.target.value)} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20">
             {CARGOS.map((c) => <option key={c} value={c}>{c || "Todos"}</option>)}
           </select>
         </div>
-        <div className="min-w-[200px] flex-1">
-          <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Posto da falta</label>
-          <select value={posto} onChange={(e) => setPosto(e.target.value)} className="mt-2 w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <div className="w-full sm:min-w-[200px] sm:flex-1">
+          <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Posto da falta</label>
+          <select value={posto} onChange={(e) => setPosto(e.target.value)} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20">
             <option value="">Todos</option>
             {POSTOS_FALTA.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
-        <button onClick={exportExcel} disabled={exporting || items.length === 0} className="ml-auto inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
+        <button onClick={exportExcel} disabled={exporting || items.length === 0} className="w-full sm:w-auto sm:ml-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-oak-dark text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
           <FileSpreadsheet className="size-4" />
           {exporting ? "Gerando..." : "Exportar Excel"}
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
         <Stat label="Total" value={totals.total} />
         <Stat label="Horas trab." value={`${totals.horas}h`} />
         <Stat label="Valor total" value={`R$ ${totals.valor.toFixed(2)}`} />
@@ -237,17 +237,18 @@ function Relatorios() {
         <Stat label="Pendentes" value={totals.PENDENTE} />
       </div>
 
-      <div className="bg-card border border-border rounded-3xl overflow-hidden">
+      <div className="bg-card border border-oak-light rounded-3xl overflow-hidden">
         {items.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted-foreground">Nenhuma movimentação no período.</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="table-head-row">
+              <tr className="bg-sand/30">
                 <Th>Data</Th><Th>Colaborador</Th><Th>Cargo</Th><Th>Funcionário faltante</Th><Th>Posto</Th><Th>Horas</Th><Th>Valor</Th><Th>Status</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-oak-light">
               {items.map((i) => (
                 <tr key={i.id}>
                   <td className="px-6 py-4 text-sm tabular-nums">{format(new Date(i.data_ft + "T00:00:00"), "dd/MM/yy")}</td>
@@ -262,6 +263,7 @@ function Relatorios() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
@@ -270,13 +272,13 @@ function Relatorios() {
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-card border border-border p-5 rounded-2xl">
-      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{label}</p>
+    <div className="bg-card border border-oak-light p-5 rounded-2xl">
+      <p className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">{label}</p>
       <p className="text-2xl font-light tabular-nums mt-2">{value}</p>
     </div>
   );
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{children}</th>;
+  return <th className="px-6 py-4 text-[10px] font-bold text-oak-dark/50 uppercase tracking-widest">{children}</th>;
 }

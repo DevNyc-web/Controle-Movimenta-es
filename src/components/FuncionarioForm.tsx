@@ -36,7 +36,7 @@ export function FuncionarioForm({ initial, onDone }: Props) {
   const set = (k: string) => (e: any) => setForm({ ...form, [k]: e.target.value });
 
   return (
-    <form onSubmit={handleSubmit} className="bg-card border border-border rounded-3xl p-8 space-y-6">
+    <form onSubmit={handleSubmit} className="bg-card border border-oak-light rounded-3xl p-8 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Field label="Nome completo" value={form.nome} onChange={set("nome")} required />
         <Field label="RE" value={form.re} onChange={set("re")} required />
@@ -48,14 +48,14 @@ export function FuncionarioForm({ initial, onDone }: Props) {
           options={[{ value: "true", label: "Sim" }, { value: "false", label: "Não" }]} />
         <SelectField label="Status" value={form.status} onChange={set("status")}
           options={[{ value: "ativo", label: "Ativo" }, { value: "ferias", label: "De férias" }]} />
-        <div className="md:col-span-2 bg-muted/60 rounded-xl p-4 text-sm">
-          <span className="text-muted-foreground">Valor fixo da folga trabalhada para </span>
+        <div className="md:col-span-2 bg-sand/50 rounded-xl p-4 text-sm">
+          <span className="text-oak-dark/60">Valor fixo da folga trabalhada para </span>
           <strong>{form.cargo}</strong>: <strong>R$ {VALORES[form.cargo]?.toFixed(2)}</strong>
         </div>
       </div>
-      <div className="flex justify-end gap-3 pt-4 border-t border-border">
-        <button type="button" onClick={onDone} className="px-5 py-2.5 text-sm font-medium text-primary hover:bg-accent rounded-xl">Cancelar</button>
-        <button type="submit" disabled={loading} className="px-6 py-2.5 bg-primary text-primary-foreground text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50">
+      <div className="flex flex-col-reverse gap-3 pt-4 border-t border-oak-light sm:flex-row sm:justify-end">
+        <button type="button" onClick={onDone} className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium text-oak-dark hover:bg-oak-medium/20 rounded-xl">Cancelar</button>
+        <button type="submit" disabled={loading} className="w-full sm:w-auto px-6 py-2.5 bg-oak-dark text-primary-foreground text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50">
           {loading ? "Salvando..." : "Salvar"}
         </button>
       </div>
@@ -66,9 +66,9 @@ export function FuncionarioForm({ initial, onDone }: Props) {
 function Field({ label, value, onChange, type = "text", required }: any) {
   return (
     <div>
-      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{label}</label>
+      <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">{label}</label>
       <input type={type} required={required} value={value ?? ""} onChange={onChange}
-        className="mt-2 w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-ring" />
+        className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-oak-dark/20" />
     </div>
   );
 }
@@ -77,8 +77,8 @@ function SelectField({ label, value, onChange, options }: any) {
   const opts = (options as any[]).map((o) => (typeof o === "string" ? { value: o, label: o } : o));
   return (
     <div>
-      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{label}</label>
-      <select value={value} onChange={onChange} className="mt-2 w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-ring">
+      <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">{label}</label>
+      <select value={value} onChange={onChange} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-oak-dark/20">
         {opts.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>

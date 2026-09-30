@@ -141,7 +141,7 @@ function AuditoriaPage() {
         <p className="text-muted-foreground mt-1">Registro imutável com usuário, ação, módulo e detalhes do que foi alterado.</p>
       </div>
 
-      <div className="bg-card border border-border rounded-3xl p-6 grid grid-cols-2 md:grid-cols-7 gap-3 items-end">
+      <div className="bg-card border border-oak-light rounded-3xl p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3 items-end">
         <Field label="Usuário"><input value={fUser} onChange={(e) => setFUser(e.target.value)} className={inp} placeholder="username" /></Field>
         <Field label="Permissão">
           <select value={fRole} onChange={(e) => setFRole(e.target.value)} className={inp}>
@@ -163,37 +163,38 @@ function AuditoriaPage() {
         </Field>
         <Field label="De"><input type="date" value={fStart} onChange={(e) => setFStart(e.target.value)} className={inp} /></Field>
         <Field label="Até"><input type="date" value={fEnd} onChange={(e) => setFEnd(e.target.value)} className={inp} /></Field>
-        <button onClick={exportCsv} disabled={!filtered.length} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
+        <button onClick={exportCsv} disabled={!filtered.length} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-oak-dark text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
           <Download className="size-4" /> CSV
         </button>
       </div>
 
-      <div className="bg-card border border-border rounded-3xl overflow-hidden">
+      <div className="bg-card border border-oak-light rounded-3xl overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-sm text-muted-foreground">Carregando...</div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted-foreground">Nenhum registro.</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="table-head-row">
+              <tr className="bg-sand/30">
                 <Th>Data/Hora</Th><Th>Usuário</Th><Th>Ação</Th><Th>Módulo</Th><Th>O que mudou</Th><Th>Descrição</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-oak-light">
               {filtered.map((l) => (
                 <React.Fragment key={l.id}>
-                  <tr className="table-row-hover cursor-pointer" onClick={() => setExpanded(expanded === l.id ? null : l.id)}>
+                  <tr className="hover:bg-sand/20 cursor-pointer" onClick={() => setExpanded(expanded === l.id ? null : l.id)}>
                     <td className="px-6 py-3 text-xs tabular-nums">{format(new Date(l.created_at), "dd/MM/yy HH:mm:ss")}</td>
                     <td className="px-6 py-3 text-sm font-medium">{l.username ?? "—"}</td>
-                    <td className="px-6 py-3 text-xs"><span className="px-2 py-0.5 bg-muted border border-border rounded">{getAction(l)}</span></td>
+                    <td className="px-6 py-3 text-xs"><span className="px-2 py-0.5 bg-sand rounded">{getAction(l)}</span></td>
                     <td className="px-6 py-3 text-xs">{getModule(l)}</td>
                     <td className="px-6 py-3 text-xs">{getObjectDescription(l)}</td>
                     <td className="px-6 py-3 text-sm">{l.description ?? "—"}</td>
                   </tr>
                   {expanded === l.id && (l.old_data || l.new_data) && (
-                    <tr><td colSpan={6} className="px-6 py-4 bg-muted/40">
-                      <div className="grid grid-cols-2 gap-4 text-xs">
+                    <tr><td colSpan={6} className="px-6 py-4 bg-sand/10">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                         <div><div className="font-bold mb-1">Antes</div><pre className="bg-card p-3 rounded overflow-auto max-h-60">{JSON.stringify(l.old_data, null, 2)}</pre></div>
                         <div><div className="font-bold mb-1">Depois</div><pre className="bg-card p-3 rounded overflow-auto max-h-60">{JSON.stringify(l.new_data, null, 2)}</pre></div>
                       </div>
@@ -203,14 +204,15 @@ function AuditoriaPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-const inp = "w-full px-3 py-2 bg-muted border border-border rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-ring";
+const inp = "w-full px-3 py-2 bg-sand rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-oak-dark/20";
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div><label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{label}</label><div className="mt-1">{children}</div></div>;
+  return <div><label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">{label}</label><div className="mt-1">{children}</div></div>;
 }
-function Th({ children }: { children: React.ReactNode }) { return <th className="px-6 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{children}</th>; }
+function Th({ children }: { children: React.ReactNode }) { return <th className="px-6 py-3 text-[10px] font-bold text-oak-dark/50 uppercase tracking-widest">{children}</th>; }

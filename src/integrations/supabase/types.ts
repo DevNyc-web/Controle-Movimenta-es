@@ -74,6 +74,7 @@ export type Database = {
           id: string
           lancado_por: string | null
           motivo: string | null
+          numero_ft: string
           observacao: string | null
           posto_falta: string | null
           status: Database["public"]["Enums"]["ft_status"]
@@ -95,6 +96,7 @@ export type Database = {
           id?: string
           lancado_por?: string | null
           motivo?: string | null
+          numero_ft?: string
           observacao?: string | null
           posto_falta?: string | null
           status?: Database["public"]["Enums"]["ft_status"]
@@ -116,6 +118,7 @@ export type Database = {
           id?: string
           lancado_por?: string | null
           motivo?: string | null
+          numero_ft?: string
           observacao?: string | null
           posto_falta?: string | null
           status?: Database["public"]["Enums"]["ft_status"]
@@ -136,6 +139,67 @@ export type Database = {
             columns: ["funcionario_id"]
             isOneToOne: false
             referencedRelation: "funcionarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ft_cancelamento_solicitacoes: {
+        Row: {
+          created_at: string
+          data_decisao: string | null
+          decidido_por: string | null
+          ft_id: string
+          id: string
+          motivo: string
+          observacao: string | null
+          solicitado_por: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_decisao?: string | null
+          decidido_por?: string | null
+          ft_id: string
+          id?: string
+          motivo: string
+          observacao?: string | null
+          solicitado_por: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_decisao?: string | null
+          decidido_por?: string | null
+          ft_id?: string
+          id?: string
+          motivo?: string
+          observacao?: string | null
+          solicitado_por?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ft_cancelamento_solicitacoes_ft_id_fkey"
+            columns: ["ft_id"]
+            isOneToOne: false
+            referencedRelation: "ft"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ft_cancelamento_solicitacoes_solicitado_por_fkey"
+            columns: ["solicitado_por"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ft_cancelamento_solicitacoes_decidido_por_fkey"
+            columns: ["decidido_por"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -291,6 +355,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      aprovar_cancelamento: {
+        Args: { _solicitacao_id: string; _obs?: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -310,11 +378,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      rejeitar_cancelamento: {
+        Args: { _solicitacao_id: string; _obs?: string }
+        Returns: undefined
+      }
       valor_folga_por_cargo: { Args: { _cargo: string }; Returns: number }
     }
     Enums: {
       app_role: "admin" | "gestor" | "rh" | "apontamento" | "supervisor"
-      ft_status: "PENDENTE" | "APROVADA" | "NEGADA" | "CANCELADA"
+      ft_status: "PENDENTE" | "APROVADA" | "NEGADA" | "CANCELADA" | "CANCELAMENTO_SOLICITADO"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -443,7 +515,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "gestor", "rh", "apontamento", "supervisor"],
-      ft_status: ["PENDENTE", "APROVADA", "NEGADA", "CANCELADA"],
+      ft_status: ["PENDENTE", "APROVADA", "NEGADA", "CANCELADA", "CANCELAMENTO_SOLICITADO"],
     },
   },
 } as const

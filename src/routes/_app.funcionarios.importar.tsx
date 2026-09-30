@@ -185,7 +185,7 @@ function ImportarFuncionarios() {
     <div className="space-y-8 max-w-5xl">
       <div className="flex items-center justify-between">
         <div>
-          <Link to="/funcionarios" className="text-xs text-muted-foreground hover:underline inline-flex items-center gap-1">
+          <Link to="/funcionarios" className="text-xs text-oak-dark/60 hover:underline inline-flex items-center gap-1">
             <ArrowLeft className="size-3" /> Voltar
           </Link>
           <h1 className="text-3xl font-light tracking-tight mt-2">Importar funcionários</h1>
@@ -195,20 +195,20 @@ function ImportarFuncionarios() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-3xl p-8 space-y-6">
+      <div className="bg-card border border-oak-light rounded-3xl p-8 space-y-6">
         <div>
           <label className="block">
-            <div className="border-2 border-dashed border-border rounded-2xl p-10 text-center cursor-pointer hover:table-head-row transition">
-              <Upload className="size-8 mx-auto text-muted-foreground" />
+            <div className="border-2 border-dashed border-oak-medium rounded-2xl p-10 text-center cursor-pointer hover:bg-sand/30 transition">
+              <Upload className="size-8 mx-auto text-oak-dark/60" />
               <div className="mt-3 text-sm font-medium">Clique para selecionar arquivo XLSX</div>
-              <div className="text-xs text-muted-foreground mt-1">{fileName || "Nenhum arquivo selecionado"}</div>
+              <div className="text-xs text-oak-dark/50 mt-1">{fileName || "Nenhum arquivo selecionado"}</div>
             </div>
             <input type="file" accept=".xlsx" onChange={handleFile} className="hidden" />
           </label>
         </div>
 
-        <div className="bg-muted/80 rounded-xl p-4 text-xs space-y-1">
-          <div className="font-semibold uppercase tracking-widest text-[10px] text-muted-foreground">Regras de mapeamento</div>
+        <div className="bg-sand/40 rounded-xl p-4 text-xs space-y-1">
+          <div className="font-semibold uppercase tracking-widest text-[10px] text-oak-dark/60">Regras de mapeamento</div>
           <div>• Vigilante → <strong>Vigilante</strong></div>
           <div>• Limpeza, Zelador, Serviços Gerais → <strong>ASG</strong></div>
           <div>• Portaria, Porteiro, Vigia, Controlador de Acesso, Monitoramento, Bombeiro, Inspetor, Vistoria → <strong>Porteiro</strong></div>
@@ -220,23 +220,23 @@ function ImportarFuncionarios() {
 
         {rows.length > 0 && (
           <>
-            <div className="flex items-center justify-between border-t border-border pt-6">
+            <div className="flex flex-col gap-4 border-t border-oak-light pt-6 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="text-2xl font-light">{rows.length}</div>
-                <div className="text-xs text-muted-foreground uppercase tracking-widest">linhas prontas</div>
+                <div className="text-xs text-oak-dark/60 uppercase tracking-widest">linhas prontas</div>
               </div>
               <button
                 onClick={handleImport}
                 disabled={loading}
-                className="px-6 py-3 bg-primary text-primary-foreground text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50"
+                className="w-full sm:w-auto px-6 py-3 bg-oak-dark text-primary-foreground text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50"
               >
                 {loading ? "Importando..." : `Importar ${rows.length} funcionários`}
               </button>
             </div>
 
-            <div className="max-h-96 overflow-auto border border-border rounded-xl">
+            <div className="max-h-96 overflow-auto border border-oak-light rounded-xl">
               <table className="w-full text-xs">
-                <thead className="table-head-row sticky top-0">
+                <thead className="bg-sand/50 sticky top-0">
                   <tr>
                     <th className="px-3 py-2 text-left">Nome</th>
                     <th className="px-3 py-2 text-left">RE</th>
@@ -245,37 +245,37 @@ function ImportarFuncionarios() {
                     <th className="px-3 py-2 text-left">Empresa (planilha)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-oak-light">
                   {rows.slice(0, 200).map((r, i) => (
                     <tr key={i}>
                       <td className="px-3 py-1.5">{r.nome}</td>
                       <td className="px-3 py-1.5 tabular-nums">{r.re}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{r.cargo_original}</td>
+                      <td className="px-3 py-1.5 text-oak-dark/60">{r.cargo_original}</td>
                       <td className="px-3 py-1.5 font-medium">{r.cargo}</td>
-                      <td className="px-3 py-1.5 text-muted-foreground">{r.empresa_origem}</td>
+                      <td className="px-3 py-1.5 text-oak-dark/60">{r.empresa_origem}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {rows.length > 200 && (
-                <div className="p-2 text-center text-xs text-muted-foreground">Mostrando 200 de {rows.length}.</div>
+                <div className="p-2 text-center text-xs text-oak-dark/50">Mostrando 200 de {rows.length}.</div>
               )}
             </div>
           </>
         )}
 
         {result && (
-          <div className="border-t border-border pt-6 flex items-center gap-3 text-sm">
+          <div className="border-t border-oak-light pt-6 flex flex-col gap-3 text-sm sm:flex-row sm:items-center">
             <CheckCircle2 className="size-5 text-emerald-600" />
             <span><strong>{result.inserted}</strong> inseridos. <strong>{result.failed}</strong> falharam.</span>
-            <button onClick={() => navigate({ to: "/funcionarios" })} className="ml-auto px-4 py-2 bg-secondary rounded-xl text-xs font-medium">
+            <button onClick={() => navigate({ to: "/funcionarios" })} className="w-full sm:w-auto sm:ml-auto px-4 py-2 bg-oak-medium/30 rounded-xl text-xs font-medium">
               Ver funcionários
             </button>
           </div>
         )}
 
         {errors.length > 0 && (
-          <div className="border-t border-border pt-6">
+          <div className="border-t border-oak-light pt-6">
             <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
               <AlertTriangle className="size-4" /> {errors.length} aviso(s)
             </div>

@@ -89,7 +89,7 @@ function UsuariosPage() {
         <p className="text-sm text-muted-foreground">Acesso restrito ao Gestor.</p>
         <p className="text-sm text-muted-foreground">
           Se você alterou seu próprio perfil por engano, execute o arquivo{" "}
-          <code className="text-xs bg-muted px-1 py-0.5 rounded">supabase/restore_gestor.sql</code>{" "}
+          <code className="text-xs bg-sand px-1 py-0.5 rounded">supabase/restore_gestor.sql</code>{" "}
           no SQL Editor do Supabase e faça login novamente.
         </p>
       </div>
@@ -209,9 +209,9 @@ function UsuariosPage() {
       <form
         onSubmit={handleCreate}
         autoComplete="off"
-        className="bg-card border border-border rounded-3xl p-6 space-y-4"
+        className="bg-card border border-oak-light rounded-3xl p-6 space-y-4"
       >
-        <h2 className="text-sm font-medium text-foreground">Novo usuário</h2>
+        <h2 className="text-sm font-medium text-oak-dark">Novo usuário</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Field label="Usuário (login)">
             <input
@@ -262,21 +262,22 @@ function UsuariosPage() {
         <button
           disabled={creating}
           type="submit"
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-oak-dark text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50 w-full sm:w-auto"
         >
           <Plus className="size-4" /> {creating ? "Criando..." : "Criar usuário"}
         </button>
       </form>
 
-      <div className="bg-card border border-border rounded-3xl overflow-hidden">
+      <div className="bg-card border border-oak-light rounded-3xl overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-sm text-muted-foreground">Carregando...</div>
         ) : rows.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted-foreground">Nenhum usuário cadastrado.</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="table-head-row">
+              <tr className="bg-sand/30">
                 <Th>Usuário</Th>
                 <Th>Nome</Th>
                 <Th>Permissão</Th>
@@ -284,18 +285,18 @@ function UsuariosPage() {
                 <Th>Ações</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-oak-light">
               {rows.map((r) => (
-                <tr key={r.id} className={r.id === user?.id ? "bg-accent/50" : undefined}>
+                <tr key={r.id} className={r.id === user?.id ? "bg-oak-light/10" : undefined}>
                   <td className="px-6 py-4 text-sm font-medium">
                     {r.username ?? "—"}
                     {r.id === user?.id && (
-                      <span className="ml-2 text-[10px] uppercase text-muted-foreground">(você)</span>
+                      <span className="ml-2 text-[10px] uppercase text-oak-dark/50">(você)</span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-sm">{r.nome}</td>
                   <td className="px-6 py-4 text-sm">
-                    <span className="px-2 py-1 bg-muted border border-border rounded-lg text-xs">{roleLabel(r.role)}</span>
+                    <span className="px-2 py-1 bg-sand rounded-lg text-xs">{roleLabel(r.role)}</span>
                   </td>
                   <td className="px-6 py-4 text-xs">
                     <span
@@ -308,7 +309,7 @@ function UsuariosPage() {
                     <button
                       type="button"
                       onClick={() => openEdit(r)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-muted border border-border rounded-lg text-xs hover:bg-accent"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-sand rounded-lg text-xs hover:bg-oak-medium"
                     >
                       <Pencil className="size-3" />
                       Editar
@@ -316,7 +317,7 @@ function UsuariosPage() {
                     <button
                       type="button"
                       onClick={() => toggleActive(r)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-muted border border-border rounded-lg text-xs hover:bg-accent"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-sand rounded-lg text-xs hover:bg-oak-medium"
                     >
                       <Power className="size-3" />
                       {r.ativo ? "Desativar" : "Ativar"}
@@ -324,7 +325,7 @@ function UsuariosPage() {
                     <button
                       type="button"
                       onClick={() => handleReset(r)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-muted border border-border rounded-lg text-xs hover:bg-accent"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-sand rounded-lg text-xs hover:bg-oak-medium"
                     >
                       <Key className="size-3" />
                       Senha
@@ -343,6 +344,7 @@ function UsuariosPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -403,14 +405,14 @@ function UsuariosPage() {
               <button
                 type="button"
                 onClick={() => setEditOpen(false)}
-                className="px-4 py-2 text-sm rounded-xl bg-muted hover:bg-accent"
+                className="px-4 py-2 text-sm rounded-xl bg-sand hover:bg-oak-medium"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={savingEdit}
-                className="px-4 py-2 text-sm rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                className="px-4 py-2 text-sm rounded-xl bg-oak-dark text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
                 {savingEdit ? "Salvando..." : "Salvar alterações"}
               </button>
@@ -423,17 +425,17 @@ function UsuariosPage() {
 }
 
 const inp =
-  "w-full px-4 py-2.5 bg-muted border border-border rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-ring";
+  "w-full px-4 py-2.5 bg-sand rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-oak-dark/20";
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{label}</label>
+      <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">{label}</label>
       <div className="mt-2">{children}</div>
     </div>
   );
 }
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{children}</th>
+    <th className="px-6 py-4 text-[10px] font-bold text-oak-dark/50 uppercase tracking-widest">{children}</th>
   );
 }
