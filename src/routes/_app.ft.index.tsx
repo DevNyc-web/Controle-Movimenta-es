@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Plus, Search } from "lucide-react";
 import { format } from "date-fns";
@@ -11,7 +10,6 @@ export const Route = createFileRoute("/_app/ft/")({
 });
 
 function FtList() {
-  const { user, isSupervisor } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("TODOS");
   const [q, setQ] = useState("");
@@ -23,7 +21,6 @@ function FtList() {
       .from("ft")
       .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, cargo, re)")
       .order("data_ft", { ascending: false });
-    if (isSupervisor) query = query.eq("lancado_por", user!.id);
     const { data } = await query;
     setItems(data ?? []);
   }

@@ -75,6 +75,7 @@ export type Database = {
           lancado_por: string | null
           motivo: string | null
           numero_ft: string
+          pagamento_em_folha: boolean
           observacao: string | null
           posto_falta: string | null
           status: Database["public"]["Enums"]["ft_status"]
@@ -97,6 +98,7 @@ export type Database = {
           lancado_por?: string | null
           motivo?: string | null
           numero_ft?: string
+          pagamento_em_folha?: boolean
           observacao?: string | null
           posto_falta?: string | null
           status?: Database["public"]["Enums"]["ft_status"]
@@ -119,6 +121,7 @@ export type Database = {
           lancado_por?: string | null
           motivo?: string | null
           numero_ft?: string
+          pagamento_em_folha?: boolean
           observacao?: string | null
           posto_falta?: string | null
           status?: Database["public"]["Enums"]["ft_status"]

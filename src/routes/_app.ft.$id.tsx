@@ -94,6 +94,7 @@ function FtDetalhe() {
         <Info label="Data" value={format(new Date(ft.data_ft + "T00:00:00"), "dd 'de' MMMM, yyyy", { locale: ptBR })} />
         <Info label="Posto da falta" value={ft.posto_falta ?? "—"} className="col-span-2" />
         <Info label="Escala" value={ft.escala_servico ?? ft.tipo_folga ?? "—"} />
+        {ft.pagamento_em_folha && <Info label="Pagamento" value="PAGAMENTO EM FOLHA" />}
         <Info label="Horas trabalhadas" value={`${ft.horas_trabalhadas}h`} />
         <Info label="Horas compensadas" value={`${ft.horas_compensadas}h`} />
         {ft.motivo && <Info label="Motivo da cobertura" value={ft.motivo} />}
@@ -116,7 +117,7 @@ function FtDetalhe() {
         </div>
       )}
 
-      {isSupervisor && isPending && (
+      {isSupervisor && isPending && ft.lancado_por === user?.id && (
         <button
           onClick={() => setShowCancelModal(true)}
           className="inline-flex items-center gap-2 text-xs text-orange-600 hover:underline"

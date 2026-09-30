@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import ExcelJS from "exceljs";
+import { agruparPorFuncionario, totaisGerais, LABEL_FOLHA } from "@/lib/relatorio";
+import { buildWorkbook } from "@/lib/relatorio-excel";
 import { FileSpreadsheet } from "lucide-react";
 import { POSTOS_FALTA } from "@/lib/postos";
 
@@ -45,138 +46,14 @@ function Relatorios() {
     return true;
   }), [raw, nome, cargo, posto]);
 
-  const totals = items.reduce(
-    (acc, i) => {
-      acc.total++;
-      acc.horas += Number(i.horas_trabalhadas);
-      acc.valor += Number(i.valor_pago ?? 0);
-      acc[i.status] = (acc[i.status] ?? 0) + 1;
-      return acc;
-    },
-    { total: 0, horas: 0, valor: 0, PENDENTE: 0, APROVADA: 0, NEGADA: 0, CANCELADA: 0 } as any
-  );
+  const totals = useMemo(() => totaisGerais(items), [items]);
+  const grupos = useMemo(() => agruparPorFuncionario(items), [items]);
 
   async function exportExcel() {
     setExporting(true);
     try {
-      const wb = new ExcelJS.Workbook();
-      wb.creator = "Movimentação Operacional";
-      wb.created = new Date();
-      const ws = wb.addWorksheet("Relatório", { views: [{ state: "frozen", ySplit: 6 }] });
-
-      const periodLabel = `${format(new Date(start + "T00:00:00"), "dd/MM/yyyy")} a ${format(new Date(end + "T00:00:00"), "dd/MM/yyyy")}`;
-
-      ws.mergeCells("A1:J1");
-      const title = ws.getCell("A1");
-      title.value = "MOVIMENTAÇÃO OPERACIONAL";
-      title.font = { name: "Calibri", size: 18, bold: true, color: { argb: "FFFFFFFF" } };
-      title.alignment = { horizontal: "center", vertical: "middle" };
-      title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3D3022" } };
-      ws.getRow(1).height = 36;
-
-      ws.mergeCells("A2:J2");
-      const sub = ws.getCell("A2");
-      sub.value = `Relatório Gerencial — Período: ${periodLabel}`;
-      sub.font = { name: "Calibri", size: 11, italic: true, color: { argb: "FF6B5B45" } };
-      sub.alignment = { horizontal: "center" };
-      sub.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFE6D6" } };
-      ws.getRow(2).height = 22;
-
-      ws.mergeCells("A3:J3");
-      const gen = ws.getCell("A3");
-      gen.value = `Emitido em ${format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}`;
-      gen.font = { name: "Calibri", size: 9, color: { argb: "FF999999" } };
-      gen.alignment = { horizontal: "right" };
-
-      ws.mergeCells("A5:J5");
-      const sumTitle = ws.getCell("A5");
-      sumTitle.value = `Total: ${totals.total}   |   Aprovadas: ${totals.APROVADA}   |   Pendentes: ${totals.PENDENTE}   |   Negadas/Canceladas: ${totals.NEGADA + totals.CANCELADA}   |   Horas trabalhadas: ${totals.horas}h   |   Valor total: R$ ${totals.valor.toFixed(2)}`;
-      sumTitle.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FF3D3022" } };
-      sumTitle.alignment = { horizontal: "center", vertical: "middle" };
-      sumTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF7F1E5" } };
-      ws.getRow(5).height = 24;
-
-      const headers = ["Data", "Colaborador", "RE", "Cargo", "Funcionário faltante", "Posto da falta", "Escala", "Horas Trab.", "Valor (R$)", "Status"];
-      const headerRow = ws.getRow(6);
-      headers.forEach((h, idx) => {
-        const cell = headerRow.getCell(idx + 1);
-        cell.value = h;
-        cell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF6B5B45" } };
-        cell.alignment = { horizontal: "center", vertical: "middle" };
-        cell.border = {
-          top: { style: "thin", color: { argb: "FF3D3022" } },
-          bottom: { style: "thin", color: { argb: "FF3D3022" } },
-          left: { style: "thin", color: { argb: "FF3D3022" } },
-          right: { style: "thin", color: { argb: "FF3D3022" } },
-        };
-      });
-      headerRow.height = 28;
-
-      items.forEach((i, idx) => {
-        const row = ws.addRow([
-          format(new Date(i.data_ft + "T00:00:00"), "dd/MM/yyyy"),
-          i.funcionario?.nome ?? "—",
-          i.funcionario?.re ?? "—",
-          i.funcionario?.cargo ?? "—",
-          i.funcionario_faltante?.nome ?? "—",
-          i.posto_falta ?? "—",
-          i.escala_servico ?? i.tipo_folga ?? "—",
-          Number(i.horas_trabalhadas),
-          Number(i.valor_pago ?? 0),
-          i.status,
-        ]);
-        const isOdd = idx % 2 === 1;
-        row.eachCell((cell, col) => {
-          cell.font = { name: "Calibri", size: 10 };
-          cell.alignment = { vertical: "middle", horizontal: col === 2 || col === 5 || col === 6 ? "left" : "center", wrapText: true };
-          cell.border = {
-            top: { style: "hair", color: { argb: "FFE5DDC9" } },
-            bottom: { style: "hair", color: { argb: "FFE5DDC9" } },
-            left: { style: "hair", color: { argb: "FFE5DDC9" } },
-            right: { style: "hair", color: { argb: "FFE5DDC9" } },
-          };
-          if (isOdd) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFAF6EE" } };
-          if (col === 8) cell.numFmt = '0.0" h"';
-          if (col === 9) cell.numFmt = '"R$ "#,##0.00';
-        });
-
-        const statusColors: Record<string, string> = { APROVADA: "FF1B7A4D", PENDENTE: "FFB07A1A", NEGADA: "FFB23A48", CANCELADA: "FF6B5B45" };
-        const statusBg: Record<string, string> = { APROVADA: "FFD9F0E3", PENDENTE: "FFFCEFD0", NEGADA: "FFF7DAD9", CANCELADA: "FFE8E2D5" };
-        const statusCell = row.getCell(10);
-        statusCell.font = { name: "Calibri", size: 9, bold: true, color: { argb: statusColors[i.status] ?? "FF333333" } };
-        statusCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: statusBg[i.status] ?? "FFEEEEEE" } };
-        statusCell.alignment = { horizontal: "center", vertical: "middle" };
-      });
-
-      if (items.length) {
-        const totRow = ws.addRow(["", "", "", "", "", "", "TOTAIS", totals.horas, totals.valor, `${totals.total} reg.`]);
-        totRow.eachCell((cell) => {
-          cell.font = { name: "Calibri", size: 10, bold: true, color: { argb: "FFFFFFFF" } };
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF3D3022" } };
-          cell.alignment = { horizontal: "center", vertical: "middle" };
-          cell.border = { top: { style: "medium", color: { argb: "FF3D3022" } } };
-        });
-        totRow.getCell(8).numFmt = '0.0" h"';
-        totRow.getCell(9).numFmt = '"R$ "#,##0.00';
-        totRow.height = 24;
-      }
-
-      const widths = [12, 32, 10, 16, 26, 22, 12, 13, 14, 14];
-      widths.forEach((w, i) => (ws.getColumn(i + 1).width = w));
-
-      ws.addRow([]);
-      const footRow = ws.addRow([`Documento gerado automaticamente pelo sistema Movimentação Operacional`]);
-      ws.mergeCells(`A${footRow.number}:J${footRow.number}`);
-      footRow.getCell(1).font = { name: "Calibri", size: 9, italic: true, color: { argb: "FF999999" } };
-      footRow.getCell(1).alignment = { horizontal: "center" };
-
-      ws.pageSetup = {
-        orientation: "landscape", paperSize: 9, fitToPage: true, fitToWidth: 1, fitToHeight: 0,
-        margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 },
-      };
-      ws.headerFooter.oddFooter = "&CMovimentação Operacional — Página &P de &N";
-
+      const emitido = `Emitido em ${format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}`;
+      const wb = buildWorkbook(items, start, end, emitido);
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
@@ -248,20 +125,31 @@ function Relatorios() {
                 <Th>Data</Th><Th>Colaborador</Th><Th>Cargo</Th><Th>Funcionário faltante</Th><Th>Posto</Th><Th>Horas</Th><Th>Valor</Th><Th>Status</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-oak-light">
-              {items.map((i) => (
-                <tr key={i.id}>
-                  <td className="px-6 py-4 text-sm tabular-nums">{format(new Date(i.data_ft + "T00:00:00"), "dd/MM/yy")}</td>
-                  <td className="px-6 py-4 text-sm font-medium">{i.funcionario?.nome}</td>
-                  <td className="px-6 py-4 text-sm">{i.funcionario?.cargo ?? "—"}</td>
-                  <td className="px-6 py-4 text-sm">{i.funcionario_faltante?.nome ?? "—"}</td>
-                  <td className="px-6 py-4 text-sm max-w-[180px] truncate" title={i.posto_falta ?? ""}>{i.posto_falta ?? "—"}</td>
-                  <td className="px-6 py-4 text-sm tabular-nums">{i.horas_trabalhadas}h</td>
-                  <td className="px-6 py-4 text-sm tabular-nums">R$ {Number(i.valor_pago ?? 0).toFixed(2)}</td>
-                  <td className="px-6 py-4"><StatusBadge status={i.status} /></td>
+            {grupos.map((g) => (
+              <tbody key={g.funcionarioId} className="divide-y divide-oak-light border-t-4 border-oak-light">
+                <tr className="bg-sand/50">
+                  <td colSpan={8} className="px-6 py-3 text-sm font-semibold">{g.nome} <span className="text-[10px] font-normal text-oak-dark/60">RE {g.re}</span></td>
                 </tr>
-              ))}
-            </tbody>
+                {g.items.map((i: any) => (
+                  <tr key={i.id}>
+                    <td className="px-6 py-4 text-sm tabular-nums">{format(new Date(i.data_ft + "T00:00:00"), "dd/MM/yy")}</td>
+                    <td className="px-6 py-4 text-sm font-medium">{i.funcionario?.nome}</td>
+                    <td className="px-6 py-4 text-sm">{i.funcionario?.cargo ?? "—"}</td>
+                    <td className="px-6 py-4 text-sm">{i.funcionario_faltante?.nome ?? "—"}</td>
+                    <td className="px-6 py-4 text-sm max-w-[180px] truncate" title={i.posto_falta ?? ""}>{i.posto_falta ?? "—"}</td>
+                    <td className="px-6 py-4 text-sm tabular-nums">{i.horas_trabalhadas}h</td>
+                    <td className="px-6 py-4 text-sm tabular-nums">{i.pagamento_em_folha ? <span className="text-[10px] font-bold uppercase tracking-wider text-oak-dark/70">{LABEL_FOLHA}</span> : `R$ ${Number(i.valor_pago ?? 0).toFixed(2)}`}</td>
+                    <td className="px-6 py-4"><StatusBadge status={i.status} /></td>
+                  </tr>
+                ))}
+                <tr className="bg-sand/30 font-semibold">
+                  <td colSpan={5} className="px-6 py-3 text-sm text-right">TOTAL {g.nome}</td>
+                  <td className="px-6 py-3 text-sm tabular-nums">{g.horas}h</td>
+                  <td className="px-6 py-3 text-sm tabular-nums">R$ {g.valor.toFixed(2)}</td>
+                  <td className="px-6 py-3 text-xs text-oak-dark/60">{g.items.length} reg.</td>
+                </tr>
+              </tbody>
+            ))}
           </table>
           </div>
         )}

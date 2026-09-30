@@ -26,6 +26,7 @@ function NovaMovimentacao() {
     horas_compensadas: 0,
     observacao: "",
     posto_falta: "",
+    pagamento_em_folha: false,
   });
   const [loading, setLoading] = useState(false);
 
@@ -51,6 +52,7 @@ function NovaMovimentacao() {
       horas_compensadas: Number(form.horas_compensadas),
       observacao: form.observacao || null,
       posto_falta: form.posto_falta,
+      pagamento_em_folha: form.pagamento_em_folha,
       lancado_por: user?.id,
     });
     setLoading(false);
@@ -122,6 +124,11 @@ function NovaMovimentacao() {
             </select>
           </div>
         </div>
+
+        <label className="flex items-center gap-3 px-4 py-3 bg-sand rounded-xl cursor-pointer">
+          <input type="checkbox" checked={form.pagamento_em_folha} onChange={(e) => setForm({ ...form, pagamento_em_folha: e.target.checked })} className="size-4 accent-[var(--oak-dark)]" />
+          <span className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Pagamento em folha</span>
+        </label>
 
         <div>
           <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Observações</label>
