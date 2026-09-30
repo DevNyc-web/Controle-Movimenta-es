@@ -44,21 +44,21 @@ export function FuncionarioPicker({ label, value, onChange, required, excludeId 
 
   return (
     <div ref={ref} className="relative">
-      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{label}</label>
+      <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">{label}</label>
       {selected ? (
-        <div className="mt-2 flex items-center justify-between px-4 py-2.5 bg-muted border border-border rounded-xl text-sm">
+        <div className="mt-2 flex items-center justify-between px-4 py-2.5 bg-sand rounded-xl text-sm">
           <div>
             <span className="font-medium">{selected.nome}</span>
-            <span className="text-muted-foreground ml-2">RE {selected.re}</span>
+            <span className="text-oak-dark/60 ml-2">RE {selected.re}</span>
           </div>
-          <button type="button" onClick={() => { onChange(""); setQ(""); setOpen(true); }} className="p-1 hover:bg-accent rounded-md">
+          <button type="button" onClick={() => { onChange(""); setQ(""); setOpen(true); }} className="p-1 hover:bg-oak-medium/30 rounded-md">
             <X className="size-3.5" />
           </button>
         </div>
       ) : (
         <div className="mt-2 relative">
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border border-border rounded-xl">
-            <Search className="size-3.5 text-muted-foreground" />
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-sand rounded-xl">
+            <Search className="size-3.5 text-oak-dark/40" />
             <input
               required={required && !value}
               value={q}
@@ -69,23 +69,23 @@ export function FuncionarioPicker({ label, value, onChange, required, excludeId 
             />
           </div>
           {open && filtered.length > 0 && (
-            <ul className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-64 overflow-y-auto">
+            <ul className="absolute z-20 mt-1 w-full bg-card border border-oak-light rounded-xl shadow-lg max-h-64 overflow-y-auto">
               {filtered.map((f) => (
                 <li key={f.id}>
                   <button
                     type="button"
                     onClick={() => { onChange(f.id); setOpen(false); setQ(""); }}
-                    className="w-full text-left px-4 py-2.5 hover:bg-accent text-sm flex items-center justify-between"
+                    className="w-full text-left px-4 py-2.5 hover:bg-sand text-sm flex items-center justify-between"
                   >
                     <span className="font-medium">{f.nome}</span>
-                    <span className="text-xs text-muted-foreground">RE {f.re}</span>
+                    <span className="text-xs text-oak-dark/60">RE {f.re}</span>
                   </button>
                 </li>
               ))}
             </ul>
           )}
           {open && filtered.length === 0 && (
-            <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-lg p-4 text-xs text-muted-foreground">
+            <div className="absolute z-20 mt-1 w-full bg-card border border-oak-light rounded-xl shadow-lg p-4 text-xs text-muted-foreground">
               Nenhum funcionário encontrado.
             </div>
           )}

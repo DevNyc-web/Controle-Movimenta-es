@@ -27,9 +27,9 @@ export function PostoCombobox({ label = "Posto onde ocorreu a falta", value, onC
 
   return (
     <div ref={ref} className="relative">
-      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{label}</label>
+      <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">{label}</label>
       {value ? (
-        <div className="mt-2 flex items-center justify-between gap-2 px-4 py-2.5 bg-muted border border-border rounded-xl text-sm">
+        <div className="mt-2 flex items-center justify-between gap-2 px-4 py-2.5 bg-sand rounded-xl text-sm">
           <span className="font-medium leading-snug">{value}</span>
           <button
             type="button"
@@ -38,7 +38,7 @@ export function PostoCombobox({ label = "Posto onde ocorreu a falta", value, onC
               setQ("");
               setOpen(true);
             }}
-            className="shrink-0 p-1 hover:bg-accent rounded-md"
+            className="shrink-0 p-1 hover:bg-oak-medium/30 rounded-md"
             aria-label="Limpar posto"
           >
             <X className="size-3.5" />
@@ -46,8 +46,8 @@ export function PostoCombobox({ label = "Posto onde ocorreu a falta", value, onC
         </div>
       ) : (
         <div className="mt-2 relative">
-          <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border border-border rounded-xl">
-            <Search className="size-3.5 text-muted-foreground shrink-0" />
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-sand rounded-xl">
+            <Search className="size-3.5 text-oak-dark/40 shrink-0" />
             <input
               required={required && !value}
               value={q}
@@ -59,10 +59,10 @@ export function PostoCombobox({ label = "Posto onde ocorreu a falta", value, onC
               placeholder="Digite para buscar o posto..."
               className="flex-1 bg-transparent text-sm focus:outline-none min-w-0"
             />
-            <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
+            <ChevronDown className="size-3.5 text-oak-dark/40 shrink-0" />
           </div>
           {open && (
-            <ul className="absolute z-30 mt-1 w-full bg-card border border-border rounded-xl shadow-lg max-h-72 overflow-y-auto">
+            <ul className="absolute z-30 mt-1 w-full bg-card border border-oak-light rounded-xl shadow-lg max-h-72 overflow-y-auto">
               {filtered.length === 0 ? (
                 <li className="px-4 py-3 text-xs text-muted-foreground">Nenhum posto encontrado.</li>
               ) : (
@@ -75,7 +75,7 @@ export function PostoCombobox({ label = "Posto onde ocorreu a falta", value, onC
                         setOpen(false);
                         setQ("");
                       }}
-                      className="w-full text-left px-4 py-2.5 hover:bg-accent text-sm leading-snug"
+                      className="w-full text-left px-4 py-2.5 hover:bg-sand text-sm leading-snug"
                     >
                       {p}
                     </button>

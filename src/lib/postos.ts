@@ -1,5 +1,6 @@
 /** Postos onde pode ocorrer falta — lista fixa usada em Nova Movimentação e relatórios. */
 export const POSTOS_FALTA = [
+  "BASE",
   "P10 - WECKERLE",
   "P15 - COOPEROVOS",
   "P19 ENGESIG AREA 2",
@@ -44,6 +45,7 @@ export const POSTOS_FALTA = [
   "P187 HELBOR IPOEMA CASAS",
   "P188 COND. RES. PEDRA BELLA AREA 2",
   "P189 COND DO PORTO",
+  "P190 TOPAZIO",
   "P198 TOKIO MARINE SEGURADORA",
   "P201 TINAGA AREA 2",
   "P204 CONDOMINIO ORION",

@@ -21,7 +21,7 @@ function EditarFuncionario() {
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <Link to="/funcionarios" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+      <Link to="/funcionarios" className="inline-flex items-center gap-1 text-xs text-oak-dark hover:underline">
         <ChevronLeft className="size-3" /> Voltar
       </Link>
       <div>

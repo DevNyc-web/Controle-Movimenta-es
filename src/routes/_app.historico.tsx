@@ -28,17 +28,18 @@ function Historico() {
         <p className="text-muted-foreground mt-1">Movimentações canceladas ou negadas.</p>
       </div>
 
-      <div className="bg-card border border-border rounded-3xl overflow-hidden">
+      <div className="bg-card border border-oak-light rounded-3xl overflow-hidden">
         {items.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted-foreground">Nenhum registro no histórico.</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="table-head-row">
+              <tr className="bg-sand/30">
                 <Th>Colaborador</Th><Th>Data</Th><Th>Escala</Th><Th>Status</Th><Th>Atualizado em</Th><Th>{"\u00A0"}</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-oak-light">
               {items.map((f) => (
                 <tr key={f.id}>
                   <td className="px-8 py-4 text-sm font-medium">{f.funcionario?.nome}</td>
@@ -47,12 +48,13 @@ function Historico() {
                   <td className="px-8 py-4"><StatusBadge status={f.status} /></td>
                   <td className="px-8 py-4 text-sm tabular-nums">{format(new Date(f.updated_at), "dd/MM/yy HH:mm")}</td>
                   <td className="px-8 py-4 text-right">
-                    <Link to="/ft/$id" params={{ id: f.id }} className="text-xs font-semibold text-primary hover:underline">Ver</Link>
+                    <Link to="/ft/$id" params={{ id: f.id }} className="text-xs font-semibold text-oak-dark hover:underline">Ver</Link>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
@@ -60,5 +62,5 @@ function Historico() {
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th className="px-8 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{children}</th>;
+  return <th className="px-8 py-4 text-[10px] font-bold text-oak-dark/50 uppercase tracking-widest">{children}</th>;
 }
