@@ -68,6 +68,19 @@ export function mesesExcedidos(rows: FtContagem[]): Set<string> {
   return new Set([...qtd].filter(([, n]) => n > LIMITE_MENSAL).map(([k]) => k));
 }
 
+/** Lê todas as páginas de uma consulta. Avança pelo que o servidor DEVOLVEU (não por tamanho fixo): se o PostgREST
+ *  limitar a resposta abaixo de `tamanho` (max_rows), nenhuma linha é pulada. Para só numa página vazia. */
+export async function lerTodas<T>(pagina: (from: number, to: number) => Promise<T[]>, tamanho = 1000): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; ) {
+    const rows = await pagina(from, from + tamanho - 1);
+    if (rows.length === 0) break;
+    out.push(...rows);
+    from += rows.length;
+  }
+  return out;
+}
+
 /** Meses INTEIROS tocados pelo período: 15/10..31/10 => 01/10..31/10; 15/09..10/10 => 01/09..31/10. */
 export function mesesInteiros(start: string, end: string): { inicio: string; fim: string } {
   const [y, m] = [Number(end.slice(0, 4)), Number(end.slice(5, 7))];

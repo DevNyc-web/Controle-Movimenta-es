@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { agruparPorFuncionario, totaisGerais, mesesExcedidos, mesesInteiros, grupoExcedeu, linhaExcedeu, LABEL_FOLHA, type FtContagem } from "@/lib/relatorio";
+import { agruparPorFuncionario, totaisGerais, mesesExcedidos, mesesInteiros, lerTodas, grupoExcedeu, linhaExcedeu, LABEL_FOLHA, type FtContagem } from "@/lib/relatorio";
 import { buildWorkbook } from "@/lib/relatorio-excel";
 import { FileSpreadsheet } from "lucide-react";
 import { POSTOS_FALTA } from "@/lib/postos";
@@ -13,14 +13,11 @@ export const Route = createFileRoute("/_app/relatorios")({
   component: Relatorios,
 });
 
-const PAGINA = 1000; // limite padrão do PostgREST por requisição
-
 /** Meses com mais de 4 movimentações. Independe dos filtros da tela (nome/cargo/posto) e do recorte do período:
- *  considera os MESES INTEIROS tocados por start..end e pagina para não truncar em 1000 linhas. */
+ *  considera os MESES INTEIROS tocados por start..end e pagina (lerTodas) para não truncar em 1000 linhas. */
 async function carregarExcedidos(start: string, end: string): Promise<Set<string>> {
   const { inicio, fim } = mesesInteiros(start, end);
-  const rows: FtContagem[] = [];
-  for (let from = 0; ; from += PAGINA) {
+  const rows = await lerTodas<FtContagem>(async (from, to) => {
     const { data, error } = await supabase
       .from("ft")
       .select("funcionario_id, data_ft, status")
@@ -28,11 +25,10 @@ async function carregarExcedidos(start: string, end: string): Promise<Set<string
       .lte("data_ft", fim)
       .order("data_ft")
       .order("funcionario_id") // com UNIQUE (funcionario_id, data_ft) a ordem é total: paginação sem repetir/pular linhas
-      .range(from, from + PAGINA - 1);
+      .range(from, to);
     if (error) throw error;
-    rows.push(...((data ?? []) as FtContagem[]));
-    if ((data?.length ?? 0) < PAGINA) break;
-  }
+    return (data ?? []) as FtContagem[];
+  });
   return mesesExcedidos(rows);
 }
 

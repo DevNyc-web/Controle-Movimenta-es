@@ -65,7 +65,7 @@ export function buildWorkbook(items: any[], start: string, end: string, emitidoE
         if (col === 8) cell.numFmt = HRS;
         if (col === 9 && !folha) cell.numFmt = BRL;
       });
-      if (linhaExcedeu(i, excedidos)) row.getCell(2).font = { name: "Calibri", size: 10, bold: true, color: { argb: VERMELHO } };
+      if (linhaExcedeu(i, excedidos)) row.getCell(2).font = { name: "Calibri", size: 10, color: { argb: VERMELHO } }; // só a cor (sem negrito)
       if (folha) row.getCell(9).font = { name: "Calibri", size: 9, bold: true, color: { argb: "FF6B5B45" } };
       const sc = row.getCell(10);
       sc.font = { name: "Calibri", size: 9, bold: true, color: { argb: STATUS_COLOR[i.status] ?? "FF333333" } };

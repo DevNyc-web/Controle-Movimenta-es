@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import ExcelJS from "exceljs";
-import { agruparPorFuncionario, totaisGerais, LABEL_FOLHA, mesesExcedidos, mesesInteiros, linhaExcedeu, grupoExcedeu, chaveMes } from "../src/lib/relatorio.ts";
+import { agruparPorFuncionario, totaisGerais, LABEL_FOLHA, mesesExcedidos, mesesInteiros, lerTodas, linhaExcedeu, grupoExcedeu, chaveMes } from "../src/lib/relatorio.ts";
 import { buildWorkbook } from "../src/lib/relatorio-excel.ts";
 
 let n = 0;
@@ -132,4 +132,17 @@ test("sinalizar não altera valores, subtotais, total geral nem a regra financei
   const sub = new Map<string, unknown>();
   ws.eachRow((r) => { const l = String(r.getCell(7).value ?? ""); if (l.startsWith("TOTAL ")) sub.set(l, r.getCell(9).value); });
   assert.deepEqual([...sub], [["TOTAL JOÃO", 500], ["TOTAL MARIA", 200], ["TOTAL GERAL", 700]]);
+});
+
+test("paginação: lê tudo, sem repetir nem pular, mesmo se o servidor limitar a resposta abaixo do tamanho pedido", async () => {
+  const dados = Array.from({ length: 2500 }, (_, k) => k);
+  const servidor = (cap: number) => async (from: number, to: number) => dados.slice(from, Math.min(to + 1, from + cap));
+  for (const cap of [1000, 500, 999, 2500]) { // 500/999 = max_rows do PostgREST menor que a página pedida
+    const lidas = await lerTodas(servidor(cap), 1000);
+    assert.deepEqual(lidas, dados, `cap ${cap}`);
+  }
+  assert.deepEqual(await lerTodas(servidor(1000), 1000), dados);
+  const exato = dados.slice(0, 2000); // múltiplo exato da página: termina na página vazia
+  assert.deepEqual(await lerTodas(async (f, t) => exato.slice(f, t + 1), 1000), exato);
+  assert.deepEqual(await lerTodas(async () => [], 1000), []);
 });
