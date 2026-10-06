@@ -46,6 +46,39 @@ export function agruparPorFuncionario<T extends FtRow>(items: T[]): Grupo<T>[] {
   return grupos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") || cmp(a.funcionarioId, b.funcionarioId));
 }
 
+/* ---- Limite mensal: sinalização (não bloqueia) ---------------------------------------------------------------
+   Regra (mesma semântica do antigo bloqueio do banco): por funcionario_id + mês de data_ft, contam TODAS as FTs exceto
+   CANCELADA (PENDENTE, APROVADA e NEGADA contam; pagamento_em_folha conta para a quantidade). Excedeu = mais de 4. */
+export const LIMITE_MENSAL = 4;
+
+export interface FtContagem { funcionario_id: string; data_ft: string; status: string }
+
+/** "AAAA-MM" lido da string; data_ft é DATE, então nada de new Date() (evita erro de fuso). */
+export const mesDe = (dataFt: string) => dataFt.slice(0, 7);
+export const chaveMes = (funcionarioId: string, dataFt: string) => `${funcionarioId}|${mesDe(dataFt)}`;
+
+/** Chaves (funcionario_id|AAAA-MM) com mais de LIMITE_MENSAL movimentações. Nunca usa o nome. */
+export function mesesExcedidos(rows: FtContagem[]): Set<string> {
+  const qtd = new Map<string, number>();
+  for (const r of rows) {
+    if (r.status === "CANCELADA") continue;
+    const k = chaveMes(r.funcionario_id, r.data_ft);
+    qtd.set(k, (qtd.get(k) ?? 0) + 1);
+  }
+  return new Set([...qtd].filter(([, n]) => n > LIMITE_MENSAL).map(([k]) => k));
+}
+
+/** Meses INTEIROS tocados pelo período: 15/10..31/10 => 01/10..31/10; 15/09..10/10 => 01/09..31/10. */
+export function mesesInteiros(start: string, end: string): { inicio: string; fim: string } {
+  const [y, m] = [Number(end.slice(0, 4)), Number(end.slice(5, 7))];
+  const ultimo = new Date(Date.UTC(y, m, 0)).getUTCDate(); // dia 0 do mês seguinte, em UTC: independe do fuso
+  return { inicio: `${start.slice(0, 7)}-01`, fim: `${mesDe(end)}-${String(ultimo).padStart(2, "0")}` };
+}
+
+export const linhaExcedeu = (i: Pick<FtRow, "funcionario_id" | "data_ft">, exc: ReadonlySet<string>) => exc.has(chaveMes(i.funcionario_id, i.data_ft));
+/** Funcionário aparece em vermelho no cabeçalho se QUALQUER mês do relatório excedeu. */
+export const grupoExcedeu = (g: Grupo, exc: ReadonlySet<string>) => g.items.some((i) => linhaExcedeu(i, exc));
+
 /** Totais gerais; valor exclui FT em folha. */
 export function totaisGerais(items: FtRow[]) {
   const t: Record<string, number> = { total: 0, horas: 0, valor: 0, PENDENTE: 0, APROVADA: 0, NEGADA: 0, CANCELADA: 0 };

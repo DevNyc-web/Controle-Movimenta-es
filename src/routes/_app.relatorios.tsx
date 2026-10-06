@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { agruparPorFuncionario, totaisGerais, LABEL_FOLHA } from "@/lib/relatorio";
+import { agruparPorFuncionario, totaisGerais, mesesExcedidos, mesesInteiros, grupoExcedeu, linhaExcedeu, LABEL_FOLHA, type FtContagem } from "@/lib/relatorio";
 import { buildWorkbook } from "@/lib/relatorio-excel";
 import { FileSpreadsheet } from "lucide-react";
 import { POSTOS_FALTA } from "@/lib/postos";
@@ -12,6 +12,29 @@ import { POSTOS_FALTA } from "@/lib/postos";
 export const Route = createFileRoute("/_app/relatorios")({
   component: Relatorios,
 });
+
+const PAGINA = 1000; // limite padrão do PostgREST por requisição
+
+/** Meses com mais de 4 movimentações. Independe dos filtros da tela (nome/cargo/posto) e do recorte do período:
+ *  considera os MESES INTEIROS tocados por start..end e pagina para não truncar em 1000 linhas. */
+async function carregarExcedidos(start: string, end: string): Promise<Set<string>> {
+  const { inicio, fim } = mesesInteiros(start, end);
+  const rows: FtContagem[] = [];
+  for (let from = 0; ; from += PAGINA) {
+    const { data, error } = await supabase
+      .from("ft")
+      .select("funcionario_id, data_ft, status")
+      .gte("data_ft", inicio)
+      .lte("data_ft", fim)
+      .order("data_ft")
+      .order("funcionario_id") // com UNIQUE (funcionario_id, data_ft) a ordem é total: paginação sem repetir/pular linhas
+      .range(from, from + PAGINA - 1);
+    if (error) throw error;
+    rows.push(...((data ?? []) as FtContagem[]));
+    if ((data?.length ?? 0) < PAGINA) break;
+  }
+  return mesesExcedidos(rows);
+}
 
 const CARGOS = ["", "Vigilante", "Porteiro", "ASG", "Recepcionista", "Manutencista", "Freelancer"];
 
@@ -27,6 +50,7 @@ function Relatorios() {
   const [posto, setPosto] = useState("");
   const [raw, setRaw] = useState<any[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [excedidos, setExcedidos] = useState<Set<string>>(new Set());
 
   useEffect(() => { load(); }, [start, end]);
   async function load() {
@@ -38,6 +62,13 @@ function Relatorios() {
       .order("data_ft");
     setRaw(data ?? []);
   }
+
+  useEffect(() => {
+    if (!start || !end) return;
+    let vivo = true;
+    carregarExcedidos(start, end).then((s) => { if (vivo) setExcedidos(s); }).catch((e) => { console.error("contagem mensal", e); if (vivo) setExcedidos(new Set()); });
+    return () => { vivo = false; };
+  }, [start, end]);
 
   const items = useMemo(() => raw.filter((i) => {
     if (nome && !(i.funcionario?.nome ?? "").toLowerCase().includes(nome.toLowerCase())) return false;
@@ -53,7 +84,7 @@ function Relatorios() {
     setExporting(true);
     try {
       const emitido = `Emitido em ${format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}`;
-      const wb = buildWorkbook(items, start, end, emitido);
+      const wb = buildWorkbook(items, start, end, emitido, excedidos);
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
@@ -128,12 +159,12 @@ function Relatorios() {
             {grupos.map((g) => (
               <tbody key={g.funcionarioId} className="divide-y divide-oak-light border-t-4 border-oak-light">
                 <tr className="bg-sand/50">
-                  <td colSpan={8} className="px-6 py-3 text-sm font-semibold">{g.nome} <span className="text-[10px] font-normal text-oak-dark/60">RE {g.re}</span></td>
+                  <td colSpan={8} className="px-6 py-3 text-sm font-semibold"><span className={grupoExcedeu(g, excedidos) ? "text-red-700" : undefined}>{g.nome}</span> <span className="text-[10px] font-normal text-oak-dark/60">RE {g.re}</span></td>
                 </tr>
                 {g.items.map((i: any) => (
                   <tr key={i.id}>
                     <td className="px-6 py-4 text-sm tabular-nums">{format(new Date(i.data_ft + "T00:00:00"), "dd/MM/yy")}</td>
-                    <td className="px-6 py-4 text-sm font-medium">{i.funcionario?.nome}</td>
+                    <td className={`px-6 py-4 text-sm font-medium${linhaExcedeu(i, excedidos) ? " text-red-700" : ""}`}>{i.funcionario?.nome}</td>
                     <td className="px-6 py-4 text-sm">{i.funcionario?.cargo ?? "—"}</td>
                     <td className="px-6 py-4 text-sm">{i.funcionario_faltante?.nome ?? "—"}</td>
                     <td className="px-6 py-4 text-sm max-w-[180px] truncate" title={i.posto_falta ?? ""}>{i.posto_falta ?? "—"}</td>
