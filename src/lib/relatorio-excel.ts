@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { agruparPorFuncionario, totaisGerais, LABEL_FOLHA, type FtRow } from "./relatorio.ts";
+import { agruparPorFuncionario, totaisGerais, grupoExcedeu, linhaExcedeu, LABEL_FOLHA, type FtRow } from "./relatorio.ts";
 
 const fmtData = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 const fill = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
@@ -7,11 +7,13 @@ const hair = { style: "hair" as const, color: { argb: "FFE5DDC9" } };
 const dark = { style: "thin" as const, color: { argb: "FF3D3022" } };
 const STATUS_COLOR: Record<string, string> = { APROVADA: "FF1B7A4D", PENDENTE: "FFB07A1A", NEGADA: "FFB23A48", CANCELADA: "FF6B5B45" };
 const STATUS_BG: Record<string, string> = { APROVADA: "FFD9F0E3", PENDENTE: "FFFCEFD0", NEGADA: "FFF7DAD9", CANCELADA: "FFE8E2D5" };
+const VERMELHO = "FFC00000"; // limite mensal excedido
 const BRL = '"R$ "#,##0.00';
 const HRS = '0.0" h"';
 
-/** Planilha agrupada: por funcionário (cabeçalho, FTs, TOTAL do funcionário, linha em branco) + TOTAL GERAL. */
-export function buildWorkbook(items: any[], start: string, end: string, emitidoEm: string): ExcelJS.Workbook {
+/** Planilha agrupada: por funcionário (cabeçalho, FTs, TOTAL do funcionário, linha em branco) + TOTAL GERAL.
+ *  `excedidos` = chaves funcionario_id|AAAA-MM com mais de 4 movimentações (ver mesesExcedidos): só muda a cor do nome. */
+export function buildWorkbook(items: any[], start: string, end: string, emitidoEm: string, excedidos: ReadonlySet<string> = new Set()): ExcelJS.Workbook {
   const rows = items as FtRow[];
   const totals = totaisGerais(rows);
   const wb = new ExcelJS.Workbook();
@@ -45,7 +47,7 @@ export function buildWorkbook(items: any[], start: string, end: string, emitidoE
   for (const g of agruparPorFuncionario(rows)) {
     const gr = ws.addRow([`${g.nome}  —  RE ${g.re}`]);
     ws.mergeCells(gr.number, 1, gr.number, 10);
-    Object.assign(gr.getCell(1), { font: { name: "Calibri", size: 11, bold: true, color: { argb: "FF3D3022" } }, fill: fill("FFE5DDC9"), alignment: { horizontal: "left", vertical: "middle" } });
+    Object.assign(gr.getCell(1), { font: { name: "Calibri", size: 11, bold: true, color: { argb: grupoExcedeu(g, excedidos) ? VERMELHO : "FF3D3022" } }, fill: fill("FFE5DDC9"), alignment: { horizontal: "left", vertical: "middle" } });
     gr.height = 22;
 
     g.items.forEach((i: any, idx) => {
@@ -63,6 +65,7 @@ export function buildWorkbook(items: any[], start: string, end: string, emitidoE
         if (col === 8) cell.numFmt = HRS;
         if (col === 9 && !folha) cell.numFmt = BRL;
       });
+      if (linhaExcedeu(i, excedidos)) row.getCell(2).font = { name: "Calibri", size: 10, color: { argb: VERMELHO } }; // só a cor (sem negrito)
       if (folha) row.getCell(9).font = { name: "Calibri", size: 9, bold: true, color: { argb: "FF6B5B45" } };
       const sc = row.getCell(10);
       sc.font = { name: "Calibri", size: 9, bold: true, color: { argb: STATUS_COLOR[i.status] ?? "FF333333" } };
