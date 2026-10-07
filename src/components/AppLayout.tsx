@@ -57,8 +57,8 @@ export function AppLayout() {
   );
 
   return (
-    <div className="flex min-h-dvh bg-canvas">
-      <aside className="hidden lg:flex w-72 bg-oak-light border-r border-oak-medium flex-col shrink-0">
+    <div className="flex h-dvh overflow-hidden bg-canvas">
+      <aside className="hidden lg:flex w-72 bg-oak-light border-r border-oak-medium flex-col shrink-0 min-h-0">
         {sidebarContent}
       </aside>
 
@@ -71,8 +71,8 @@ export function AppLayout() {
         </SheetContent>
       </Sheet>
 
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-20 border-b border-oak-light flex items-center justify-between px-4 sm:px-6 lg:px-10 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <main className="flex-1 flex flex-col min-w-0 min-h-0">
+        <header className="h-20 border-b border-oak-light flex items-center justify-between px-4 sm:px-6 lg:px-10 bg-card/50 backdrop-blur-sm sticky top-0 z-10 shrink-0">
           <button
             onClick={() => setNavOpen(true)}
             className="lg:hidden p-2 -ml-2 rounded-lg text-oak-dark hover:bg-oak-medium/30"
@@ -94,7 +94,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <div className="flex-1 p-4 sm:p-6 lg:p-10 overflow-y-auto overflow-x-hidden">
+        <div className="flex-1 min-h-0 p-4 sm:p-6 lg:p-10 overflow-y-auto overflow-x-hidden">
           {role && allowed.length > 0 && currentAllowed ? <Outlet /> : <NoAccess onLogout={handleSignOut} />}
         </div>
       </main>
@@ -115,7 +115,7 @@ function SidebarContent({
 }) {
   return (
     <>
-      <div className="p-8">
+      <div className="p-8 shrink-0">
         <div className="flex items-center gap-3">
           <img src={logoGrupoMc} alt="Grupo MC" className="size-12 object-contain shrink-0" />
           <div>
@@ -125,7 +125,7 @@ function SidebarContent({
         </div>
       </div>
 
-      <nav className="flex-1 px-4 space-y-1">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-4 space-y-1">
         <div className="pb-3 px-4 text-[10px] font-bold text-oak-dark/60 uppercase tracking-[0.2em]">Menu</div>
         {allowed.length === 0 ? (
           <div className="px-4 py-3 text-xs text-oak-dark/60">Sem permissões liberadas para este usuário.</div>
@@ -149,7 +149,7 @@ function SidebarContent({
         })}
       </nav>
 
-      <div className="p-6 space-y-3">
+      <div className="shrink-0 border-t border-oak-medium p-6 space-y-3">
         <button
           onClick={onSignOut}
           className="flex items-center gap-2 w-full px-4 py-2 text-xs font-medium text-oak-dark/70 hover:text-oak-dark transition-colors"
