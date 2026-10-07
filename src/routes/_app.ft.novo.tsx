@@ -5,13 +5,13 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { FuncionarioPicker } from "@/components/FuncionarioPicker";
 import { PostoCombobox } from "@/components/PostoCombobox";
+import { MOTIVOS } from "@/lib/motivos";
 
 export const Route = createFileRoute("/_app/ft/novo")({
   component: NovaMovimentacao,
 });
 
 const ESCALAS = ["06x18", "18x06", "07x19", "19x07", "08x18", "Outros"];
-const MOTIVOS = ["Falta", "Atestado", "Remanejamento", "Reciclagem", "Falta de efetivo"];
 
 function NovaMovimentacao() {
   const navigate = useNavigate();
