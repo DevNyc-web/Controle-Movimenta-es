@@ -6,12 +6,12 @@ import { toast } from "sonner";
 import { FuncionarioPicker } from "@/components/FuncionarioPicker";
 import { PostoCombobox } from "@/components/PostoCombobox";
 import { MOTIVOS } from "@/lib/motivos";
+import { ESCALAS, ESCALAS_HORAS } from "@/lib/escalas";
 
 export const Route = createFileRoute("/_app/ft/novo")({
   component: NovaMovimentacao,
 });
 
-const ESCALAS = ["06x18", "18x06", "07x19", "19x07", "08x18", "Outros"];
 
 function NovaMovimentacao() {
   const navigate = useNavigate();
@@ -39,8 +39,7 @@ function NovaMovimentacao() {
 
     setLoading(true);
     const escala = form.escala_servico === "Outros" ? form.escala_outros.trim() : form.escala_servico;
-    const horasMap: Record<string, number> = { "06x18": 12, "18x06": 12, "07x19": 12, "19x07": 12, "08x18": 10 };
-    const horas = horasMap[form.escala_servico] ?? 0;
+    const horas = ESCALAS_HORAS[form.escala_servico] ?? 0;
 
     const { error } = await supabase.from("ft").insert({
       funcionario_id: form.funcionario_id,

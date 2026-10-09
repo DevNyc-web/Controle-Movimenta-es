@@ -47,8 +47,8 @@ export function agruparPorFuncionario<T extends FtRow>(items: T[]): Grupo<T>[] {
 }
 
 /* ---- Limite mensal: sinalização (não bloqueia) ---------------------------------------------------------------
-   Regra (mesma semântica do antigo bloqueio do banco): por funcionario_id + mês de data_ft, contam TODAS as FTs exceto
-   CANCELADA (PENDENTE, APROVADA e NEGADA contam; pagamento_em_folha conta para a quantidade). Excedeu = mais de 4. */
+   Regra: por funcionario_id + mês de data_ft, contam as FTs exceto CANCELADA e NEGADA (PENDENTE, APROVADA e
+   CANCELAMENTO_SOLICITADO contam; pagamento_em_folha conta para a quantidade). Excedeu = mais de 4. */
 export const LIMITE_MENSAL = 4;
 
 export interface FtContagem { funcionario_id: string; data_ft: string; status: string }
@@ -61,7 +61,7 @@ export const chaveMes = (funcionarioId: string, dataFt: string) => `${funcionari
 export function mesesExcedidos(rows: FtContagem[]): Set<string> {
   const qtd = new Map<string, number>();
   for (const r of rows) {
-    if (r.status === "CANCELADA") continue;
+    if (r.status === "CANCELADA" || r.status === "NEGADA") continue;
     const k = chaveMes(r.funcionario_id, r.data_ft);
     qtd.set(k, (qtd.get(k) ?? 0) + 1);
   }

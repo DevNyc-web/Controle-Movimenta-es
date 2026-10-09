@@ -1,5 +1,5 @@
 // Limite mensal: SINALIZAÇÃO (>4 no mês por funcionario_id + mês de data_ft), nunca bloqueio.
-// Semântica de contagem = a do antigo bloqueio do banco: CANCELADA não conta; NEGADA, PENDENTE, APROVADA e folha contam.
+// Contagem: CANCELADA e NEGADA não contam; PENDENTE, APROVADA, CANCELAMENTO_SOLICITADO e folha contam.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import ExcelJS from "exceljs";
@@ -33,10 +33,11 @@ test("mês a mês: 4+4 = normal; 4 em setembro + 5 em outubro = só outubro", ()
   assert.deepEqual([...mesesExcedidos([...dias("j", "JOÃO", "2026-09", 4), ...dias("j", "JOÃO", "2026-10", 5)])], ["j|2026-10"]);
 });
 
-test("CANCELADA não conta; NEGADA conta; pagamento em folha conta para a quantidade", () => {
+test("CANCELADA e NEGADA não contam; CANCELAMENTO_SOLICITADO conta; pagamento em folha conta para a quantidade", () => {
   const quatro = dias("j", "JOÃO", "2026-10", 4);
   assert.equal(mesesExcedidos([...quatro, ftm("j", "JOÃO", "2026-10-20", { status: "CANCELADA" })]).size, 0);
-  assert.equal(mesesExcedidos([...quatro, ftm("j", "JOÃO", "2026-10-20", { status: "NEGADA" })]).size, 1);
+  assert.equal(mesesExcedidos([...quatro, ftm("j", "JOÃO", "2026-10-20", { status: "NEGADA" })]).size, 0);
+  assert.equal(mesesExcedidos([...quatro, ftm("j", "JOÃO", "2026-10-20", { status: "CANCELAMENTO_SOLICITADO" })]).size, 1);
   assert.equal(mesesExcedidos([...quatro, ftm("j", "JOÃO", "2026-10-20", { status: "PENDENTE" })]).size, 1);
   assert.equal(mesesExcedidos([...quatro, ftm("j", "JOÃO", "2026-10-20", { folha: true })]).size, 1);
   // 5 FTs com uma cancelada = 4 válidas = normal

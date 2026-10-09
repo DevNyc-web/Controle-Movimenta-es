@@ -1,4 +1,4 @@
--- TESTE DE STAGING/LOCAL — NÃO RODAR EM PRODUÇÃO. Requer a migration 20261006120000 já aplicada no banco de teste.
+-- TESTE DE STAGING/LOCAL — NÃO RODAR EM PRODUÇÃO. Requer as migrations 20261006120000 e 20261009120000 já aplicada no banco de teste.
 -- Como executar: SQL Editor do projeto de STAGING (role postgres) ou `psql "$STAGING_DB_URL" -f supabase/tests/limite_mensal.sql`
 -- (ou PGlite local, com as migrations aplicadas em ordem). Tudo roda em transação com ROLLBACK final: nada persiste.
 -- Cobre: o limite mensal deixou de BLOQUEAR (5ª, 6ª, 7ª... FT aceitas) e o restante de tg_ft_before_insert() foi preservado
@@ -35,8 +35,8 @@ BEGIN
   ASSERT NOT has_function_privilege('anon', 'public.tg_ft_before_insert()', 'EXECUTE'),          'grants preservados (anon sem EXECUTE)';
   ASSERT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_ft_before_insert' AND tgrelid = 'public.ft'::regclass AND tgenabled = 'O'),
          'trigger trg_ft_before_insert deve continuar ativo em public.ft';
-  ASSERT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.ft'::regclass AND contype = 'u'
-                 AND pg_get_constraintdef(oid) = 'UNIQUE (funcionario_id, data_ft)'), 'UNIQUE (funcionario_id, data_ft) deve continuar existindo';
+  ASSERT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'ft_funcionario_data_ativa_key'),
+         'índice único parcial (funcionario_id, data_ft) deve existir (migration 20261009120000 aplicada)';
 END $$;
 
 -- ---------------------------------------------------------------- 2) 1ª..7ª FT do mesmo funcionário no mesmo mês: todas aceitas
