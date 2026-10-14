@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { agruparPorFuncionario, totaisGerais, grupoExcedeu, linhaExcedeu, LABEL_FOLHA, type FtRow } from "./relatorio.ts";
+import { agruparPorFuncionario, totaisGerais, grupoExcedeu, linhaExcedeu, rotuloStatusFiltro, LABEL_FOLHA, type FtRow } from "./relatorio.ts";
 
 const fmtData = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 const fill = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
@@ -12,8 +12,9 @@ const BRL = '"R$ "#,##0.00';
 const HRS = '0.0" h"';
 
 /** Planilha agrupada: por funcionário (cabeçalho, FTs, TOTAL do funcionário, linha em branco) + TOTAL GERAL.
- *  `excedidos` = chaves funcionario_id|AAAA-MM com mais de 4 movimentações (ver mesesExcedidos): só muda a cor do nome. */
-export function buildWorkbook(items: any[], start: string, end: string, emitidoEm: string, excedidos: ReadonlySet<string> = new Set()): ExcelJS.Workbook {
+ *  `excedidos` = chaves funcionario_id|AAAA-MM com mais de 4 movimentações (ver mesesExcedidos): só muda a cor do nome.
+ *  `status` = filtro de status da tela ("" = todos); só aparece no subtítulo — `items` já vem filtrado. */
+export function buildWorkbook(items: any[], start: string, end: string, emitidoEm: string, excedidos: ReadonlySet<string> = new Set(), status = ""): ExcelJS.Workbook {
   const rows = items as FtRow[];
   const totals = totaisGerais(rows);
   const wb = new ExcelJS.Workbook();
@@ -27,7 +28,7 @@ export function buildWorkbook(items: any[], start: string, end: string, emitidoE
   };
   banner("A1:J1", "MOVIMENTAÇÃO OPERACIONAL", { font: { name: "Calibri", size: 18, bold: true, color: { argb: "FFFFFFFF" } }, alignment: { horizontal: "center", vertical: "middle" }, fill: fill("FF3D3022") });
   ws.getRow(1).height = 36;
-  banner("A2:J2", `Relatório Gerencial — Período: ${fmtData(start)} a ${fmtData(end)}`, { font: { name: "Calibri", size: 11, italic: true, color: { argb: "FF6B5B45" } }, alignment: { horizontal: "center" }, fill: fill("FFEFE6D6") });
+  banner("A2:J2", `Relatório Gerencial — Período: ${fmtData(start)} a ${fmtData(end)}${status ? ` — Status: ${rotuloStatusFiltro(status)}` : ""}`, { font: { name: "Calibri", size: 11, italic: true, color: { argb: "FF6B5B45" } }, alignment: { horizontal: "center" }, fill: fill("FFEFE6D6") });
   ws.getRow(2).height = 22;
   banner("A3:J3", emitidoEm, { font: { name: "Calibri", size: 9, color: { argb: "FF999999" } }, alignment: { horizontal: "right" } });
   banner(

@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { StatusBadge } from "@/components/StatusBadge";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { agruparPorFuncionario, totaisGerais, mesesExcedidos, mesesInteiros, lerTodas, grupoExcedeu, linhaExcedeu, LABEL_FOLHA, type FtContagem } from "@/lib/relatorio";
+import { agruparPorFuncionario, totaisGerais, mesesExcedidos, mesesInteiros, lerTodas, grupoExcedeu, linhaExcedeu, filtrarRelatorio, STATUS_FILTRO, LABEL_FOLHA, type FtContagem } from "@/lib/relatorio";
 import { buildWorkbook } from "@/lib/relatorio-excel";
 import { FileSpreadsheet } from "lucide-react";
 import { POSTOS_FALTA } from "@/lib/postos";
@@ -44,20 +44,29 @@ function Relatorios() {
   const [nome, setNome] = useState("");
   const [cargo, setCargo] = useState("");
   const [posto, setPosto] = useState("");
+  const [status, setStatus] = useState("");
   const [raw, setRaw] = useState<any[]>([]);
   const [exporting, setExporting] = useState(false);
   const [excedidos, setExcedidos] = useState<Set<string>>(new Set());
 
-  useEffect(() => { load(); }, [start, end]);
-  async function load() {
-    const { data } = await supabase
-      .from("ft")
-      .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, setor, cargo), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re)")
-      .gte("data_ft", start)
-      .lte("data_ft", end)
-      .order("data_ft");
-    setRaw(data ?? []);
-  }
+  useEffect(() => {
+    if (!start || !end) return;
+    let vivo = true;
+    // lerTodas: sem paginar, o PostgREST corta em 1000 linhas e tabela/Excel ficariam incompletos sem aviso
+    lerTodas<any>(async (from, to) => {
+      const { data, error } = await supabase
+        .from("ft")
+        .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, setor, cargo), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re)")
+        .gte("data_ft", start)
+        .lte("data_ft", end)
+        .order("data_ft")
+        .order("id") // ordem total: paginação sem repetir/pular linhas
+        .range(from, to);
+      if (error) throw error;
+      return data ?? [];
+    }).then((rows) => { if (vivo) setRaw(rows); }).catch((e) => { console.error("relatório", e); if (vivo) setRaw([]); });
+    return () => { vivo = false; };
+  }, [start, end]);
 
   useEffect(() => {
     if (!start || !end) return;
@@ -66,12 +75,8 @@ function Relatorios() {
     return () => { vivo = false; };
   }, [start, end]);
 
-  const items = useMemo(() => raw.filter((i) => {
-    if (nome && !(i.funcionario?.nome ?? "").toLowerCase().includes(nome.toLowerCase())) return false;
-    if (cargo && i.funcionario?.cargo !== cargo) return false;
-    if (posto && i.posto_falta !== posto) return false;
-    return true;
-  }), [raw, nome, cargo, posto]);
+  // Tabela, totais e Excel usam exatamente este `items`.
+  const items = useMemo(() => filtrarRelatorio(raw, { nome, cargo, posto, status }), [raw, nome, cargo, posto, status]);
 
   const totals = useMemo(() => totaisGerais(items), [items]);
   const grupos = useMemo(() => agruparPorFuncionario(items), [items]);
@@ -80,13 +85,13 @@ function Relatorios() {
     setExporting(true);
     try {
       const emitido = `Emitido em ${format(new Date(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}`;
-      const wb = buildWorkbook(items, start, end, emitido, excedidos);
+      const wb = buildWorkbook(items, start, end, emitido, excedidos, status);
       const buf = await wb.xlsx.writeBuffer();
       const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `movimentacao_operacional_${start}_${end}.xlsx`;
+      a.download = `movimentacao_operacional_${start}_${end}${status ? `_${status.toLowerCase()}` : ""}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -127,6 +132,12 @@ function Relatorios() {
             {POSTOS_FALTA.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
+        <div className="w-full sm:w-auto">
+          <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20">
+            {STATUS_FILTRO.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
         <button onClick={exportExcel} disabled={exporting || items.length === 0} className="w-full sm:w-auto sm:ml-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-oak-dark text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
           <FileSpreadsheet className="size-4" />
           {exporting ? "Gerando..." : "Exportar Excel"}
@@ -143,7 +154,7 @@ function Relatorios() {
 
       <div className="bg-card border border-oak-light rounded-3xl overflow-hidden">
         {items.length === 0 ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">Nenhuma movimentação no período.</div>
+          <div className="p-12 text-center text-sm text-muted-foreground">Nenhuma movimentação no período com os filtros selecionados.</div>
         ) : (
           <div className="overflow-x-auto">
           <table className="w-full text-left">

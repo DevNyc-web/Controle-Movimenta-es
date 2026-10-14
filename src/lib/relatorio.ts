@@ -103,3 +103,29 @@ export function totaisGerais(items: FtRow[]) {
   }
   return t;
 }
+
+/* ---- Filtros da tela (tabela e Excel usam o MESMO resultado) --------------------------------------------- */
+/** Opções do filtro de status. "" = todos. NEGADA aparece como "Recusada" só aqui (badge/Excel não mudam). */
+export const STATUS_FILTRO: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "", label: "Todos os status" },
+  { value: "PENDENTE", label: "Pendente" },
+  { value: "APROVADA", label: "Aprovada" },
+  { value: "NEGADA", label: "Recusada" },
+  { value: "CANCELADA", label: "Cancelada" },
+  { value: "CANCELAMENTO_SOLICITADO", label: "Cancelamento solicitado" },
+];
+export const rotuloStatusFiltro = (s: string) => STATUS_FILTRO.find((o) => o.value === s)?.label ?? s;
+
+export interface FiltrosRelatorio { nome?: string; cargo?: string; posto?: string; status?: string }
+
+/** Filtros de cliente sobre as FTs já restritas ao período (data_ft). Campo vazio = sem filtro. */
+export function filtrarRelatorio<T extends FtRow>(rows: T[], f: FiltrosRelatorio): T[] {
+  const nome = (f.nome ?? "").toLowerCase();
+  return rows.filter((i: any) => {
+    if (nome && !(i.funcionario?.nome ?? "").toLowerCase().includes(nome)) return false;
+    if (f.cargo && i.funcionario?.cargo !== f.cargo) return false;
+    if (f.posto && i.posto_falta !== f.posto) return false;
+    if (f.status && i.status !== f.status) return false;
+    return true;
+  });
+}

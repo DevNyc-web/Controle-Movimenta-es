@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { StatusBadge } from "@/components/StatusBadge";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 import { format } from "date-fns";
+import { carregarPendentes } from "@/lib/aprovacoes";
 
 export const Route = createFileRoute("/_app/aprovacoes")({
   component: Aprovacoes,
@@ -16,17 +17,22 @@ function Aprovacoes() {
   const [items, setItems] = useState<any[]>([]);
   const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
   const [obsMap, setObsMap] = useState<Record<string, string>>({});
+  // Filtro por data_ft (data do serviço). Vazio = lista completa. Vale só para as FTs pendentes.
+  const [inicio, setInicio] = useState("");
+  const [fim, setFim] = useState("");
   const navigate = useNavigate();
+  const seq = useRef(0); // descarta respostas antigas se o período mudar antes de a consulta anterior terminar
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [inicio, fim]);
 
   async function load() {
-    const { data: fts } = await supabase
-      .from("ft")
-      .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, cargo, re)")
-      .eq("status", "PENDENTE")
-      .order("data_lancamento");
-    setItems(fts ?? []);
+    const minha = ++seq.current;
+    try {
+      const fts = await carregarPendentes(supabase, inicio, fim);
+      if (minha === seq.current) setItems(fts);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao carregar movimentações");
+    }
 
     const { data: sols } = await supabase
       .from("ft_cancelamento_solicitacoes")
@@ -72,7 +78,22 @@ function Aprovacoes() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-light tracking-tight">Aprovações Pendentes</h1>
-          <p className="text-muted-foreground mt-1">{items.length} movimentação(ões) aguardando análise.</p>
+          <p className="text-muted-foreground mt-1">{items.length} movimentação(ões) aguardando análise{inicio || fim ? " no período" : ""}.</p>
+        </div>
+
+        <div className="bg-card border border-oak-light rounded-3xl p-6 flex flex-col gap-5 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="w-full sm:w-auto">
+            <label htmlFor="ap-inicio" className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Data da FT — de</label>
+            <input id="ap-inicio" type="date" value={inicio} max={fim || undefined} onChange={(e) => setInicio(e.target.value)} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20" />
+          </div>
+          <div className="w-full sm:w-auto">
+            <label htmlFor="ap-fim" className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">até</label>
+            <input id="ap-fim" type="date" value={fim} min={inicio || undefined} onChange={(e) => setFim(e.target.value)} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20" />
+          </div>
+          <button onClick={() => { setInicio(""); setFim(""); }} disabled={!inicio && !fim} className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium border border-oak-medium rounded-xl hover:bg-oak-medium/20 disabled:opacity-50">
+            Limpar filtros
+          </button>
+          {inicio && fim && inicio > fim && <p className="w-full text-xs text-rose-700">A data inicial é maior que a final.</p>}
         </div>
 
         {!isGestor && (
@@ -83,7 +104,7 @@ function Aprovacoes() {
 
         {items.length === 0 ? (
           <div className="bg-card border border-oak-light rounded-3xl p-12 text-center text-sm text-muted-foreground">
-            Nenhuma movimentação pendente. Tudo em dia! ✨
+            {inicio || fim ? "Nenhuma movimentação pendente no período selecionado." : "Nenhuma movimentação pendente. Tudo em dia! ✨"}
           </div>
         ) : (
           <div className="space-y-4">
