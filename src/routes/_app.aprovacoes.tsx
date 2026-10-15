@@ -6,7 +6,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 import { format } from "date-fns";
-import { carregarPendentes } from "@/lib/aprovacoes";
+import { carregarPendentes, lerFiltroAprovacoes, salvarFiltroAprovacoes } from "@/lib/aprovacoes";
 
 export const Route = createFileRoute("/_app/aprovacoes")({
   component: Aprovacoes,
@@ -22,8 +22,23 @@ function Aprovacoes() {
   const [fim, setFim] = useState("");
   const navigate = useNavigate();
   const seq = useRef(0); // descarta respostas antigas se o período mudar antes de a consulta anterior terminar
+  const uid = user?.id;
+  const [filtroDe, setFiltroDe] = useState<string | null>(null); // usuário cujo filtro salvo já foi restaurado
 
-  useEffect(() => { load(); }, [inicio, fim]);
+  // Restaura o filtro salvo antes da primeira consulta (evita uma busca sem filtro no meio).
+  useEffect(() => {
+    if (!uid) return;
+    const f = lerFiltroAprovacoes(uid);
+    setInicio(f.inicio);
+    setFim(f.fim);
+    setFiltroDe(uid);
+  }, [uid]);
+
+  useEffect(() => {
+    if (!uid || filtroDe !== uid) return;
+    salvarFiltroAprovacoes(uid, inicio, fim);
+    load();
+  }, [uid, filtroDe, inicio, fim]);
 
   async function load() {
     const minha = ++seq.current;
