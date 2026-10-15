@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { agruparPorFuncionario, totaisGerais, mesesExcedidos, mesesInteiros, lerTodas, grupoExcedeu, linhaExcedeu, filtrarRelatorio, STATUS_FILTRO, LABEL_FOLHA, type FtContagem } from "@/lib/relatorio";
 import { buildWorkbook } from "@/lib/relatorio-excel";
+import { valorNoRelatorio } from "@/lib/ft-valor";
 import { FileSpreadsheet } from "lucide-react";
 import { POSTOS_FALTA } from "@/lib/postos";
 
@@ -176,7 +177,7 @@ function Relatorios() {
                     <td className="px-6 py-4 text-sm">{i.funcionario_faltante?.nome ?? "—"}</td>
                     <td className="px-6 py-4 text-sm max-w-[180px] truncate" title={i.posto_falta ?? ""}>{i.posto_falta ?? "—"}</td>
                     <td className="px-6 py-4 text-sm tabular-nums">{i.horas_trabalhadas}h</td>
-                    <td className="px-6 py-4 text-sm tabular-nums">{i.pagamento_em_folha ? <span className="text-[10px] font-bold uppercase tracking-wider text-oak-dark/70">{LABEL_FOLHA}</span> : `R$ ${Number(i.valor_pago ?? 0).toFixed(2)}`}</td>
+                    <td className="px-6 py-4 text-sm tabular-nums">{i.pagamento_em_folha ? <span className="text-[10px] font-bold uppercase tracking-wider text-oak-dark/70">{LABEL_FOLHA}</span> : valorNoRelatorio(i)}</td>
                     <td className="px-6 py-4"><StatusBadge status={i.status} /></td>
                   </tr>
                 ))}
