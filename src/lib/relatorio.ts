@@ -10,7 +10,7 @@ export interface FtRow {
   valor_pago?: number | string | null;
   pagamento_em_folha?: boolean | null;
   status: string;
-  funcionario?: { nome?: string; re?: string; cargo?: string } | null;
+  funcionario?: { nome?: string; re?: string; cargo?: string; empresa?: string | null } | null;
   [k: string]: unknown;
 }
 
@@ -18,6 +18,7 @@ export interface Grupo<T extends FtRow = FtRow> {
   funcionarioId: string;
   nome: string;
   re: string;
+  empresa: string | null;
   items: T[];
   horas: number;
   valor: number;
@@ -34,7 +35,7 @@ export function agruparPorFuncionario<T extends FtRow>(items: T[]): Grupo<T>[] {
   for (const i of items) {
     let g = map.get(i.funcionario_id);
     if (!g) {
-      g = { funcionarioId: i.funcionario_id, nome: i.funcionario?.nome ?? "—", re: i.funcionario?.re ?? "—", items: [], horas: 0, valor: 0 };
+      g = { funcionarioId: i.funcionario_id, nome: i.funcionario?.nome ?? "—", re: i.funcionario?.re ?? "—", empresa: i.funcionario?.empresa ?? null, items: [], horas: 0, valor: 0 };
       map.set(i.funcionario_id, g);
     }
     g.items.push(i);

@@ -6,6 +6,7 @@ interface Funcionario {
   id: string;
   nome: string;
   re: string;
+  empresa: string | null;
 }
 
 interface Props {
@@ -23,7 +24,7 @@ export function FuncionarioPicker({ label, value, onChange, required, excludeId 
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase.from("funcionarios").select("id, nome, re").order("nome")
+    supabase.from("funcionarios").select("id, nome, re, empresa").order("nome")
       .then(({ data }) => setList((data ?? []) as Funcionario[]));
   }, []);
 
@@ -50,6 +51,7 @@ export function FuncionarioPicker({ label, value, onChange, required, excludeId 
           <div>
             <span className="font-medium">{selected.nome}</span>
             <span className="text-oak-dark/60 ml-2">RE {selected.re}</span>
+            {selected.empresa && <span className="text-oak-dark/60 ml-2">• {selected.empresa}</span>}
           </div>
           <button type="button" onClick={() => { onChange(""); setQ(""); setOpen(true); }} className="p-1 hover:bg-oak-medium/30 rounded-md">
             <X className="size-3.5" />
@@ -78,7 +80,7 @@ export function FuncionarioPicker({ label, value, onChange, required, excludeId 
                     className="w-full text-left px-4 py-2.5 hover:bg-sand text-sm flex items-center justify-between"
                   >
                     <span className="font-medium">{f.nome}</span>
-                    <span className="text-xs text-oak-dark/60">RE {f.re}</span>
+                    <span className="text-xs text-oak-dark/60 text-right">RE {f.re}{f.empresa && <span className="block text-[10px]">{f.empresa}</span>}</span>
                   </button>
                 </li>
               ))}

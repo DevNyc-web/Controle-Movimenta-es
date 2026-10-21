@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Upload, ArrowLeft, CheckCircle2, AlertTriangle } from "lucide-react";
+import { normalizarEmpresa } from "@/lib/empresas";
 
 export const Route = createFileRoute("/_app/funcionarios/importar")({
   component: ImportarFuncionarios,
@@ -28,6 +29,7 @@ type Row = {
   cargo: string;
   cargo_original: string;
   empresa_origem: string;
+  empresa: string | null;
   turno: string;
   cpf: string | null;
   data_admissao: string | null;
@@ -134,6 +136,7 @@ function ImportarFuncionarios() {
             cargo,
             cargo_original: cargoOrig,
             empresa_origem: empresa || cargo,
+            empresa: normalizarEmpresa(empresa), // só grava empresa reconhecida; senão fica vazia para revisão
             turno: "Integral",
             cpf: cpfRaw || null,
             data_admissao: dataAdm,
@@ -252,7 +255,7 @@ function ImportarFuncionarios() {
                       <td className="px-3 py-1.5 tabular-nums">{r.re}</td>
                       <td className="px-3 py-1.5 text-oak-dark/60">{r.cargo_original}</td>
                       <td className="px-3 py-1.5 font-medium">{r.cargo}</td>
-                      <td className="px-3 py-1.5 text-oak-dark/60">{r.empresa_origem}</td>
+                      <td className="px-3 py-1.5 text-oak-dark/60">{r.empresa ?? <span className="text-amber-700">não reconhecida ({r.empresa_origem}) — ficará vazia</span>}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -7,7 +7,7 @@ export function carregarPendentes(client: any, inicio = "", fim = ""): Promise<a
   return lerTodas(async (from, to) => {
     let q = client
       .from("ft")
-      .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, cargo, re)")
+      .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, cargo, re, empresa)")
       .eq("status", "PENDENTE");
     if (inicio) q = q.gte("data_ft", inicio);
     if (fim) q = q.lte("data_ft", fim);

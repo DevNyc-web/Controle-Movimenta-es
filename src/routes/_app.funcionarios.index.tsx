@@ -23,7 +23,7 @@ function FuncionariosList() {
   }
 
   const filtered = items.filter(
-    (i) => i.nome.toLowerCase().includes(q.toLowerCase()) || (i.re ?? "").includes(q)
+    (i) => i.nome.toLowerCase().includes(q.toLowerCase()) || (i.re ?? "").includes(q) || (i.empresa ?? "").toLowerCase().includes(q.toLowerCase())
   );
 
   async function handleDelete(id: string) {
@@ -61,7 +61,7 @@ function FuncionariosList() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por nome ou RE..."
+            placeholder="Buscar por nome, RE ou empresa..."
             className="flex-1 bg-transparent text-sm focus:outline-none"
           />
         </div>
@@ -73,7 +73,7 @@ function FuncionariosList() {
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-sand/30">
-                  <Th>Nome</Th><Th>RE</Th><Th>Cargo</Th><Th>Supervisor</Th><Th>Turno</Th><Th>Banco horas</Th><Th>Status</Th><Th>Ações</Th>
+                  <Th>Nome</Th><Th>RE</Th><Th>Empresa</Th><Th>Cargo</Th><Th>Supervisor</Th><Th>Turno</Th><Th>Banco horas</Th><Th>Status</Th><Th>Ações</Th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-oak-light">
@@ -81,6 +81,7 @@ function FuncionariosList() {
                   <tr key={f.id} className="hover:bg-sand/20 cursor-pointer" onClick={() => navigate({ to: "/funcionarios/$id", params: { id: f.id } })}>
                     <td className="px-8 py-5 text-sm font-medium">{f.nome}</td>
                     <td className="px-8 py-5 text-sm tabular-nums">{f.re}</td>
+                    <td className="px-8 py-5 text-xs">{f.empresa ?? "—"}</td>
                     <td className="px-8 py-5 text-sm">{f.cargo}</td>
                     <td className="px-8 py-5 text-sm">{f.supervisor ?? "—"}</td>
                     <td className="px-8 py-5 text-sm">{f.turno}</td>

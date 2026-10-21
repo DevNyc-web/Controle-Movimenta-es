@@ -15,6 +15,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useServerFn } from "@tanstack/react-start";
+import { getLancadorFt } from "@/lib/ft.functions";
 import { centavosDe, descreverCorrecao, formatarCentavos, montarCorrecao, parseValorCentavos, valorNoRelatorio } from "@/lib/ft-valor";
 
 export const Route = createFileRoute("/_app/ft/$id")({
@@ -27,6 +29,9 @@ function FtDetalhe() {
   const navigate = useNavigate();
   const [ft, setFt] = useState<any>(null);
   const [historico, setHistorico] = useState<any[]>([]);
+  // undefined = carregando; null = não identificado (sem lancado_por, sem perfil ou falha). Nunca o aprovador.
+  const [lancador, setLancador] = useState<string | null | undefined>(undefined);
+  const buscarLancador = useServerFn(getLancadorFt);
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [motivo, setMotivo] = useState("");
@@ -39,8 +44,16 @@ function FtDetalhe() {
   const [conflito, setConflito] = useState(false);
 
   useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    let vivo = true;
+    setLancador(undefined);
+    buscarLancador({ data: { ftId: id } })
+      .then((r) => { if (vivo) setLancador(r.nome); })
+      .catch(() => { if (vivo) setLancador(null); });
+    return () => { vivo = false; };
+  }, [id]);
   async function load() {
-    const { data } = await supabase.from("ft").select("*, funcionario:funcionarios!ft_funcionario_id_fkey(*), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re)").eq("id", id).maybeSingle();
+    const { data } = await supabase.from("ft").select("*, funcionario:funcionarios!ft_funcionario_id_fkey(*), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re, empresa)").eq("id", id).maybeSingle();
     setFt(data);
     if (data) {
       setValorTxt(formatarCentavos(centavosDe(data.valor_pago)));
@@ -126,12 +139,13 @@ function FtDetalhe() {
         <div>
           <p className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Movimentação {ft.numero_ft ?? `#${ft.id.slice(0, 8)}`}</p>
           <h1 className="text-3xl font-light tracking-tight mt-1">{ft.funcionario?.nome}</h1>
-          <p className="text-muted-foreground mt-1">{ft.funcionario?.cargo} • {ft.funcionario?.setor}</p>
+          <p className="text-muted-foreground mt-1">{[ft.funcionario?.cargo, ft.funcionario?.setor].filter(Boolean).join(" • ")}</p>
         </div>
         <StatusBadge status={ft.status} />
       </div>
 
       <div className="bg-card border border-oak-light rounded-3xl p-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <Info label="Empresa" value={ft.funcionario?.empresa ?? "Não informada"} className="col-span-2" />
         <Info label="Data" value={format(new Date(ft.data_ft + "T00:00:00"), "dd 'de' MMMM, yyyy", { locale: ptBR })} />
         <Info label="Posto da falta" value={ft.posto_falta ?? "—"} className="col-span-2" />
         <Info label="Escala" value={ft.escala_servico ?? ft.tipo_folga ?? "—"} />
@@ -139,10 +153,11 @@ function FtDetalhe() {
         <Info label="Horas compensadas" value={`${ft.horas_compensadas}h`} />
         {ft.motivo && <Info label="Motivo da cobertura" value={ft.motivo} />}
         {ft.funcionario_faltante && (
-          <Info label="Funcionário faltante" value={`${ft.funcionario_faltante.nome} (RE ${ft.funcionario_faltante.re})`} className="col-span-2" />
+          <Info label="Funcionário faltante" value={`${ft.funcionario_faltante.nome} (RE ${ft.funcionario_faltante.re})${ft.funcionario_faltante.empresa ? ` — ${ft.funcionario_faltante.empresa}` : ""}`} className="col-span-2" />
         )}
         {ft.observacao && <Info label="Observação" value={ft.observacao} className="col-span-2" />}
-        <Info label="Lançada em" value={format(new Date(ft.data_lancamento), "dd/MM/yyyy HH:mm")} />
+        <Info label="Lançado por" value={lancador === undefined ? "Carregando..." : lancador ?? "Não identificado"} />
+        <Info label="Data do lançamento" value={format(new Date(ft.created_at), "dd/MM/yyyy HH:mm")} />
         {ft.data_cancelamento && <Info label="Cancelada em" value={format(new Date(ft.data_cancelamento), "dd/MM/yyyy HH:mm")} />}
       </div>
 

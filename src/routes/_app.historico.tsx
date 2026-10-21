@@ -15,7 +15,7 @@ function Historico() {
   async function load() {
     const { data } = await supabase
       .from("ft")
-      .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re)")
+      .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, empresa)")
       .in("status", ["CANCELADA", "NEGADA"])
       .order("updated_at", { ascending: false });
     setItems(data ?? []);
@@ -42,7 +42,10 @@ function Historico() {
             <tbody className="divide-y divide-oak-light">
               {items.map((f) => (
                 <tr key={f.id}>
-                  <td className="px-8 py-4 text-sm font-medium">{f.funcionario?.nome}</td>
+                  <td className="px-8 py-4">
+                    <p className="text-sm font-medium">{f.funcionario?.nome}</p>
+                    {f.funcionario?.empresa && <p className="text-[10px] text-oak-dark/60">{f.funcionario.empresa}</p>}
+                  </td>
                   <td className="px-8 py-4 text-sm tabular-nums">{format(new Date(f.data_ft + "T00:00:00"), "dd/MM/yyyy")}</td>
                   <td className="px-8 py-4 text-sm">{f.escala_servico ?? f.tipo_folga ?? "—"}</td>
                   <td className="px-8 py-4"><StatusBadge status={f.status} /></td>

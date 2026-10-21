@@ -50,7 +50,8 @@ export function buildWorkbook(items: any[], start: string, end: string, emitidoE
   headerRow.height = 28; // 2 linhas ("Horas Trab." quebra)
 
   for (const g of agruparPorFuncionario(rows)) {
-    const gr = ws.addRow([`${g.nome}  —  RE ${g.re}`]);
+    // Empresa na faixa do funcionário (não vira coluna): mantém as 10 colunas, larguras e totais do layout compacto.
+    const gr = ws.addRow([`${g.nome}  —  RE ${g.re}${g.empresa ? `  —  ${g.empresa}` : ""}`]);
     ws.mergeCells(gr.number, 1, gr.number, 10);
     Object.assign(gr.getCell(1), { font: font(11, { bold: true, color: { argb: grupoExcedeu(g, excedidos) ? VERMELHO : "FF3D3022" } }), fill: fill("FFE5DDC9"), alignment: { horizontal: "left", vertical: "middle" } });
     gr.height = 17;

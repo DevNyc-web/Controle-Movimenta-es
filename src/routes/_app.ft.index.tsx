@@ -19,7 +19,7 @@ function FtList() {
   async function load() {
     let query = supabase
       .from("ft")
-      .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, cargo, re)")
+      .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, cargo, re, empresa)")
       .order("data_ft", { ascending: false });
     const { data } = await query;
     setItems(data ?? []);
@@ -76,7 +76,7 @@ function FtList() {
                     </td>
                     <td className="px-8 py-5">
                       <p className="text-sm font-medium">{f.funcionario?.nome ?? "—"}</p>
-                      <p className="text-[10px] text-oak-dark/60">RE {f.funcionario?.re}</p>
+                      <p className="text-[10px] text-oak-dark/60">RE {f.funcionario?.re}{f.funcionario?.empresa && ` • ${f.funcionario.empresa}`}</p>
                     </td>
                     <td className="px-8 py-5 text-sm tabular-nums">{format(new Date(f.data_ft + "T00:00:00"), "dd/MM/yyyy")}</td>
                     <td className="px-8 py-5 text-sm max-w-[200px] truncate" title={f.posto_falta ?? ""}>{f.posto_falta ?? "—"}</td>

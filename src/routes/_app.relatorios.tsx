@@ -57,7 +57,7 @@ function Relatorios() {
     lerTodas<any>(async (from, to) => {
       const { data, error } = await supabase
         .from("ft")
-        .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, setor, cargo), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re)")
+        .select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, setor, cargo, empresa), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re, empresa)")
         .gte("data_ft", start)
         .lte("data_ft", end)
         .order("data_ft")
@@ -167,7 +167,7 @@ function Relatorios() {
             {grupos.map((g) => (
               <tbody key={g.funcionarioId} className="divide-y divide-oak-light border-t-4 border-oak-light">
                 <tr className="bg-sand/50">
-                  <td colSpan={8} className="px-6 py-3 text-sm font-semibold"><span className={grupoExcedeu(g, excedidos) ? "text-red-700" : undefined}>{g.nome}</span> <span className="text-[10px] font-normal text-oak-dark/60">RE {g.re}</span></td>
+                  <td colSpan={8} className="px-6 py-3 text-sm font-semibold"><span className={grupoExcedeu(g, excedidos) ? "text-red-700" : undefined}>{g.nome}</span> <span className="text-[10px] font-normal text-oak-dark/60">RE {g.re}{g.empresa && ` • ${g.empresa}`}</span></td>
                 </tr>
                 {g.items.map((i: any) => (
                   <tr key={i.id}>

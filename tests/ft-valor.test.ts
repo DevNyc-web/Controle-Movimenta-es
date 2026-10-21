@@ -63,7 +63,8 @@ test("valor exibido = regra do relatório; correção salva entra nos totais; fo
 });
 
 /* ---- Tela de detalhes (verificação estática da integração) ---- */
-const tela = readFileSync("src/routes/_app.ft.$id.tsx", "utf8");
+// Normaliza CRLF (checkout no Windows com core.autocrlf=true): as asserções abaixo comparam trechos com "\n" literal.
+const tela = readFileSync("src/routes/_app.ft.$id.tsx", "utf8").replace(/\r\n/g, "\n");
 
 test("aprovação/negação não mexe em valor nem folha (não sobrescreve correção)", () => {
   const change = tela.slice(tela.indexOf("async function changeStatus"), tela.indexOf("async function salvarCorrecao"));

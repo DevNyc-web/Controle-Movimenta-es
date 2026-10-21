@@ -55,7 +55,7 @@ function Dashboard() {
 
     const { data: rec } = await supabase
       .from("ft")
-      .select("id, data_ft, horas_trabalhadas, status, motivo, funcionario:funcionarios!ft_funcionario_id_fkey(nome, cargo)")
+      .select("id, data_ft, horas_trabalhadas, status, motivo, funcionario:funcionarios!ft_funcionario_id_fkey(nome, cargo, empresa)")
       .order("created_at", { ascending: false })
       .limit(5);
     setRecent(rec ?? []);
@@ -104,7 +104,7 @@ function Dashboard() {
                     <tr key={r.id} className="hover:bg-sand/20 transition-colors">
                       <td className="px-8 py-5">
                         <p className="text-sm font-medium">{r.funcionario?.nome ?? "—"}</p>
-                        <p className="text-[10px] text-oak-dark/60">{r.funcionario?.cargo ?? ""}</p>
+                        <p className="text-[10px] text-oak-dark/60">{[r.funcionario?.cargo, r.funcionario?.empresa].filter(Boolean).join(" • ")}</p>
                       </td>
                       <td className="px-8 py-5 text-sm tabular-nums">
                         {format(new Date(r.data_ft + "T00:00:00"), "dd MMM", { locale: ptBR })}
