@@ -51,7 +51,7 @@ function Aprovacoes() {
 
     const { data: sols } = await supabase
       .from("ft_cancelamento_solicitacoes")
-      .select("*, ft:ft(numero_ft, data_ft, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re))")
+      .select("*, ft:ft(numero_ft, data_ft, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, empresa))")
       .eq("status", "PENDENTE")
       .order("created_at");
 
@@ -131,7 +131,7 @@ function Aprovacoes() {
                     <StatusBadge status={f.status} />
                   </div>
                   <p className="text-xs text-oak-dark/60 mt-1">
-                    {f.funcionario?.cargo} • RE {f.funcionario?.re} • {format(new Date(f.data_ft + "T00:00:00"), "dd/MM/yyyy")} • {f.posto_falta ?? "—"} • {f.horas_trabalhadas}h • {f.escala_servico ?? f.tipo_folga ?? "—"}
+                    {f.funcionario?.cargo} • RE {f.funcionario?.re} • {f.funcionario?.empresa ?? "Empresa não informada"} • {format(new Date(f.data_ft + "T00:00:00"), "dd/MM/yyyy")} • {f.posto_falta ?? "—"} • {f.horas_trabalhadas}h • {f.escala_servico ?? f.tipo_folga ?? "—"}
                   </p>
                   {f.observacao && <p className="text-sm mt-2 text-oak-dark/80">{f.observacao}</p>}
                 </div>
@@ -177,7 +177,7 @@ function Aprovacoes() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs text-oak-dark/60">{s.ft?.numero_ft ?? "—"}</span>
                         <span className="font-medium">{s.ft?.funcionario?.nome ?? "—"}</span>
-                        <span className="text-xs text-oak-dark/60">RE {s.ft?.funcionario?.re}</span>
+                        <span className="text-xs text-oak-dark/60">RE {s.ft?.funcionario?.re}{s.ft?.funcionario?.empresa && ` • ${s.ft.funcionario.empresa}`}</span>
                       </div>
                       <p className="text-xs text-oak-dark/60">
                         Data da FT: {s.ft?.data_ft ? format(new Date(s.ft.data_ft + "T00:00:00"), "dd/MM/yyyy") : "—"}

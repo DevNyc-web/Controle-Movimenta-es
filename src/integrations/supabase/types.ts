@@ -255,6 +255,7 @@ export type Database = {
           cpf: string | null
           created_at: string
           data_admissao: string | null
+          empresa: string | null
           id: string
           nome: string
           re: string
@@ -272,6 +273,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           data_admissao?: string | null
+          empresa?: string | null
           id?: string
           nome: string
           re: string
@@ -289,6 +291,7 @@ export type Database = {
           cpf?: string | null
           created_at?: string
           data_admissao?: string | null
+          empresa?: string | null
           id?: string
           nome?: string
           re?: string
