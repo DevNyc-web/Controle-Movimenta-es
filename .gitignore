@@ -36,3 +36,7 @@ dist-ssr
 
 # Supabase CLI local state (não versionar)
 supabase/.temp/
+
+# Backfill real de funcionarios.empresa: contém IDs internos de funcionários (repositório público).
+# Fica só na cópia local segura; os testes usam tests/fixtures/backfill-empresa-ficticio.sql.
+/supabase/backfill/

@@ -6,6 +6,7 @@ import ExcelJS from "exceljs";
 import { EMPRESAS, normalizarEmpresa } from "../src/lib/empresas.ts";
 import { agruparPorFuncionario } from "../src/lib/relatorio.ts";
 import { buildWorkbook } from "../src/lib/relatorio-excel.ts";
+import { validarBackfillEmpresa } from "./validar-backfill-empresa.ts";
 
 const src = (p: string) => readFileSync(p, "utf8").replace(/\r\n/g, "\n"); // LF ou CRLF (autocrlf no Windows)
 
@@ -71,33 +72,30 @@ test("migration de empresa é só aditiva", () => {
   assert.equal(sql, "ALTER TABLE public.funcionarios ADD COLUMN IF NOT EXISTS empresa TEXT;");
 });
 
-test("backfill: 788 IDs válidos e únicos, exceções fora, só preenche empresa vazia, nunca toca ft", () => {
-  const bf = src("supabase/backfill/funcionarios_empresa.sql");
-  const codigo = bf.replace(/--.*$/gm, "");
-  const ids = [...codigo.matchAll(/'([^']{36})'/g)].map((m) => m[1]);
-  assert.equal(ids.length, 788);
-  assert.equal(new Set(ids).size, 788);
-  for (const id of ids) assert.match(id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
-  // As 9 exceções (sem CPF, duplicado sem CPF e fictícios) não podem estar na lista
-  for (const exc of [
-    "f964e15d-c9fb-4075-a965-1502802c685c", "4167b450-1f15-415c-a2bd-3a7764e480e3", "10de6d0f-1d51-4ad8-b608-67c167a50c91",
-    "ab1239ab-e174-4290-80ab-7bec0b9160a4", "7e520769-afd4-4462-9085-f7e5158dc848", "80c77973-22f4-440d-9d1f-fc70b53f6f50",
-    "ba45b13c-52f5-40e2-97ba-16b16a8a0216", "1c27af0b-5c99-49a8-bec1-1c4816c7720c", "b0dfac58-6833-4cc4-91af-d49e94102b9b",
-  ]) assert.ok(!ids.includes(exc), exc);
-  // Só as 8 empresas conhecidas
-  for (const [, e] of codigo.matchAll(/\]::uuid\[\]\), '([^']+)'/g)) assert.ok((EMPRESAS as readonly string[]).includes(e), e);
-  // Escreve apenas funcionarios.empresa, só onde está vazia; nenhuma escrita em ft/histórico/vínculos
-  assert.deepEqual([...codigo.matchAll(/\b(UPDATE|DELETE|INSERT INTO|ALTER|DROP|TRUNCATE)\s+([\w.]+)/gi)].map((m) => `${m[1].toUpperCase()} ${m[2]}`),
-    ["INSERT INTO _empresa_backfill", "UPDATE public.funcionarios"]);
-  assert.match(codigo, /SET empresa = b\.empresa\s+FROM _empresa_backfill b\s+WHERE f\.id = b\.id\s+AND f\.empresa IS NULL;/);
-  assert.doesNotMatch(codigo, /public\.ft\b|ft_historico|valor_pago|pagamento_em_folha|funcionario_id|\bre\s*=/);
-  for (const guarda of ["IF n <> 788", "não existem mais", "sem CPF", "já têm empresa diferente"]) assert.ok(codigo.includes(guarda), guarda);
-  // Documentação coerente: 560 + 128 + 100 = 788; transferências 126 + 1 + 1 = 128
-  assert.match(bf, /788 atualizados \/ 9 permanecem NULL \(797 no total\)/);
-  assert.match(bf, /560 pelo consolidado/);
-  assert.match(bf, /128 transferidos: .*\(126 para MC REMOTA \+ 1 PATRIMONIAIS→PORTARIA/);
-  assert.match(bf, /1 PORTARIA→FACILIT/);
-  assert.match(bf, /100 só na Relação de maio/);
+test("backfill (fixture fictícia): IDs válidos e únicos, exceções fora, só preenche empresa vazia, nunca toca ft", () => {
+  // O backfill real não é versionado (IDs de funcionários; repositório público). O mesmo validador roda nele localmente.
+  const fx = src("tests/fixtures/backfill-empresa-ficticio.sql");
+  const EXC = ["00000000-0000-4000-8000-0000000000e1", "00000000-0000-4000-8000-0000000000e2"]; // exceções fictícias
+  assert.equal(validarBackfillEmpresa(fx, { total: 5, excecoes: EXC }).length, 5);
+
+  // O validador precisa reprovar cada violação (senão não está validando nada)
+  const reprova = (sql: string, total = 5) => assert.throws(() => validarBackfillEmpresa(sql, { total, excecoes: EXC }));
+  reprova(fx, 6); // contagem diferente da esperada
+  reprova(fx.replace("000000000002'", "000000000001'")); // ID repetido
+  reprova(fx.replace("00000000-0000-4000-8000-000000000005", "nao-e-uuid-0000-4000-8000-000000000005")); // ID inválido
+  reprova(fx.replace("00000000-0000-4000-8000-000000000005", EXC[0])); // exceção na lista
+  reprova(fx.replace("'MC REMOTA LTDA'", "'EMPRESA INVENTADA'")); // empresa desconhecida
+  reprova(fx.replace("   AND f.empresa IS NULL;", ";")); // sobrescreveria empresa preenchida
+  reprova(fx.replace("COMMIT;", "UPDATE public.ft SET status = 'APROVADA';\nCOMMIT;")); // escrita em ft
+  reprova(fx.replace("COMMIT;", "DELETE FROM public.funcionarios WHERE cpf IS NULL;\nCOMMIT;")); // apagaria cadastro
+  reprova(fx.replace("SET empresa = b.empresa", "SET empresa = b.empresa, re = '1'")); // alteraria RE
+  reprova(fx.replace("IF n <> 5 THEN RAISE EXCEPTION 'Backfill: esperado", "IF false THEN RAISE EXCEPTION 'Backfill: esperado")); // sem guarda de contagem
+  reprova(fx.replace("já têm empresa diferente", "x")); // sem guarda de sobrescrita
+  reprova(fx.replace(/^BEGIN;$/m, "")); // sem transação
+});
+
+test("backfill real fica fora do Git", () => {
+  assert.match(src(".gitignore"), /^\/supabase\/backfill\/$/m);
 });
 
 test("Lançado por: usa lancado_por via RLS do usuário e nunca o aprovador", () => {
