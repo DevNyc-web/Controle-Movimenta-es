@@ -47,6 +47,29 @@ export function agruparPorFuncionario<T extends FtRow>(items: T[]): Grupo<T>[] {
   return grupos.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR") || cmp(a.funcionarioId, b.funcionarioId));
 }
 
+export const SEM_EMPRESA = "SEM EMPRESA INFORMADA";
+
+export interface BlocoEmpresa<T extends FtRow = FtRow> {
+  empresa: string | null; // null = SEM_EMPRESA
+  grupos: Grupo<T>[];
+  totais: Record<string, number>;
+}
+
+/** Empresa (do funcionário da FT) > funcionário. Empresas em ordem alfabética, SEM_EMPRESA por último; funcionários na
+ *  ordem de agruparPorFuncionario. Cada FT cai em um único grupo/bloco (chave = funcionario_id), e os totais do bloco
+ *  usam totaisGerais: a soma dos blocos é o total geral. */
+export function agruparPorEmpresa<T extends FtRow>(items: T[]): BlocoEmpresa<T>[] {
+  const map = new Map<string | null, Grupo<T>[]>();
+  for (const g of agruparPorFuncionario(items)) {
+    const e = g.empresa?.trim() || null;
+    if (!map.has(e)) map.set(e, []);
+    map.get(e)!.push(g);
+  }
+  return [...map]
+    .map(([empresa, grupos]) => ({ empresa, grupos, totais: totaisGerais(grupos.flatMap((g) => g.items)) }))
+    .sort((a, b) => (a.empresa === null ? 1 : b.empresa === null ? -1 : a.empresa.localeCompare(b.empresa, "pt-BR")));
+}
+
 /* ---- Limite mensal: sinalização (não bloqueia) ---------------------------------------------------------------
    Regra: por funcionario_id + mês de data_ft, contam as FTs exceto CANCELADA e NEGADA (PENDENTE, APROVADA e
    CANCELAMENTO_SOLICITADO contam; pagamento_em_folha conta para a quantidade). Excedeu = mais de 4. */

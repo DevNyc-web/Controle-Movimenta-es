@@ -29,15 +29,15 @@ test("grupo do relatório carrega a empresa; mesmo RE em empresas diferentes = g
   assert.deepEqual(g.map((x) => [x.funcionarioId, x.re, x.empresa]), [["a", "202", "MC REMOTA LTDA"], ["b", "202", "MC SERVICOS E PORTARIA EIRELI"], ["c", "202", null]]);
 });
 
-test("Excel: empresa só na faixa do funcionário; 10 colunas e totais intactos; sem empresa = faixa antiga", async () => {
+test("Excel: empresa vira bloco e continua na faixa do funcionário; 10 colunas e totais intactos", async () => {
   const items = [ft("a", "MC REMOTA LTDA", "2026-10-01"), ft("a", "MC REMOTA LTDA", "2026-10-02"), ft("c", null, "2026-10-03")];
   const wb = buildWorkbook(items, "2026-10-01", "2026-10-31", "Emitido em X");
   const back = new ExcelJS.Workbook();
   await back.xlsx.load(Buffer.from(await wb.xlsx.writeBuffer()));
   const ws = back.getWorksheet("Relatório")!;
   const col1 = (ws.getColumn(1).values as unknown[]).map(String);
-  assert.ok(col1.includes("NOME a  —  RE 202  —  MC REMOTA LTDA"));
-  assert.ok(col1.includes("NOME c  —  RE 202"));
+  for (const v of ["MC REMOTA LTDA", "NOME a  —  RE 202  —  MC REMOTA LTDA", "SEM EMPRESA INFORMADA", "NOME c  —  RE 202"]) assert.ok(col1.includes(v), v);
+  assert.ok(col1.indexOf("NOME a  —  RE 202  —  MC REMOTA LTDA") < col1.indexOf("SEM EMPRESA INFORMADA"));
   assert.equal((ws.getRow(4).values as unknown[]).slice(1).length, 10);
   assert.equal(ws.columnCount, 10);
   const total = ws.getRows(1, ws.rowCount)!.find((r) => r.getCell(7).value === "TOTAL GERAL")!;

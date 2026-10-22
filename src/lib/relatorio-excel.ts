@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { agruparPorFuncionario, totaisGerais, grupoExcedeu, linhaExcedeu, rotuloStatusFiltro, LABEL_FOLHA, type FtRow } from "./relatorio.ts";
+import { agruparPorEmpresa, SEM_EMPRESA, totaisGerais, grupoExcedeu, linhaExcedeu, rotuloStatusFiltro, LABEL_FOLHA, type FtRow } from "./relatorio.ts";
 
 const fmtData = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 const fill = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
@@ -15,7 +15,8 @@ const ALTURA = 15; // linhas de uma só linha de texto (subtítulo, subtotal). L
 const HEADER = 4; // linha do cabeçalho da tabela (repetida em cada página impressa)
 
 /** Planilha agrupada e compacta para impressão (A4 retrato, 1 página de largura): por funcionário (cabeçalho, FTs,
- *  TOTAL do funcionário) + TOTAL GERAL. Mesmas colunas, valores, formatos e totais do layout anterior.
+ *  TOTAL do funcionário) dentro de blocos por empresa (título, funcionários, SUBTOTAL + contagem por status) + TOTAL GERAL.
+ *  Mesmas colunas, valores, formatos e totais do layout anterior.
  *  `excedidos` = chaves funcionario_id|AAAA-MM com mais de 4 movimentações (ver mesesExcedidos): só muda a cor do nome.
  *  `status` = filtro de status da tela ("" = todos); só aparece no subtítulo — `items` já vem filtrado. */
 export function buildWorkbook(items: any[], start: string, end: string, emitidoEm: string, excedidos: ReadonlySet<string> = new Set(), status = ""): ExcelJS.Workbook {
@@ -49,49 +50,79 @@ export function buildWorkbook(items: any[], start: string, end: string, emitidoE
   });
   headerRow.height = 28; // 2 linhas ("Horas Trab." quebra)
 
-  for (const g of agruparPorFuncionario(rows)) {
-    // Empresa na faixa do funcionário (não vira coluna): mantém as 10 colunas, larguras e totais do layout compacto.
-    const gr = ws.addRow([`${g.nome}  —  RE ${g.re}${g.empresa ? `  —  ${g.empresa}` : ""}`]);
-    ws.mergeCells(gr.number, 1, gr.number, 10);
-    Object.assign(gr.getCell(1), { font: font(11, { bold: true, color: { argb: grupoExcedeu(g, excedidos) ? VERMELHO : "FF3D3022" } }), fill: fill("FFE5DDC9"), alignment: { horizontal: "left", vertical: "middle" } });
-    gr.height = 17;
+  // Sem quebra de página forçada: empresas seguem em fluxo contínuo. O .xlsx não tem "manter com a próxima" e a paginação
+  // (escala, altura automática das linhas) é decidida por quem imprime, então o título pode cair no fim de uma página;
+  // por isso a faixa de cada funcionário repete a empresa, e uma página nunca começa sem dizer de qual empresa é.
+  for (const b of agruparPorEmpresa(rows)) {
+    const nomeEmpresa = b.empresa ?? SEM_EMPRESA;
+    const er = ws.addRow([nomeEmpresa]);
+    ws.mergeCells(er.number, 1, er.number, 10);
+    Object.assign(er.getCell(1), { font: font(13, { bold: true, color: { argb: "FFFFFFFF" } }), fill: fill("FF3D3022"), alignment: { horizontal: "left", vertical: "middle", indent: 1 } });
+    er.height = 22;
 
-    g.items.forEach((i: any, idx) => {
-      const folha = !!i.pagamento_em_folha;
-      const row = ws.addRow([
-        fmtData(i.data_ft), i.funcionario?.nome ?? "—", i.funcionario?.re ?? "—", i.funcionario?.cargo ?? "—",
-        i.funcionario_faltante?.nome ?? "—", i.posto_falta ?? "—", i.escala_servico ?? i.tipo_folga ?? "—",
-        Number(i.horas_trabalhadas), folha ? LABEL_FOLHA : Number(i.valor_pago ?? 0), i.status,
-      ]);
-      // Sem altura fixa: Excel/LibreOffice/Sheets ajustam a altura; texto longo quebra em 2+ linhas (nunca encolhe nem corta).
-      row.eachCell((cell, col) => {
-        cell.font = font(10);
-        cell.alignment = { vertical: "middle", horizontal: col === 2 || col === 5 || col === 6 ? "left" : "center", wrapText: true };
-        cell.border = { top: hair, bottom: hair, left: hair, right: hair };
-        if (idx % 2 === 1) cell.fill = fill("FFFAF6EE");
-        if (col === 8) cell.numFmt = HRS;
-        if (col === 9 && !folha) cell.numFmt = BRL;
+    for (const g of b.grupos) {
+      const gr = ws.addRow([`${g.nome}  —  RE ${g.re}${b.empresa ? `  —  ${b.empresa}` : ""}`]);
+      ws.mergeCells(gr.number, 1, gr.number, 10);
+      Object.assign(gr.getCell(1), { font: font(11, { bold: true, color: { argb: grupoExcedeu(g, excedidos) ? VERMELHO : "FF3D3022" } }), fill: fill("FFE5DDC9"), alignment: { horizontal: "left", vertical: "middle" } });
+      gr.height = 17;
+
+      g.items.forEach((i: any, idx) => {
+        const folha = !!i.pagamento_em_folha;
+        const row = ws.addRow([
+          fmtData(i.data_ft), i.funcionario?.nome ?? "—", i.funcionario?.re ?? "—", i.funcionario?.cargo ?? "—",
+          i.funcionario_faltante?.nome ?? "—", i.posto_falta ?? "—", i.escala_servico ?? i.tipo_folga ?? "—",
+          Number(i.horas_trabalhadas), folha ? LABEL_FOLHA : Number(i.valor_pago ?? 0), i.status,
+        ]);
+        // Sem altura fixa: Excel/LibreOffice/Sheets ajustam a altura; texto longo quebra em 2+ linhas (nunca encolhe nem corta).
+        row.eachCell((cell, col) => {
+          cell.font = font(10);
+          cell.alignment = { vertical: "middle", horizontal: col === 2 || col === 5 || col === 6 ? "left" : "center", wrapText: true };
+          cell.border = { top: hair, bottom: hair, left: hair, right: hair };
+          if (idx % 2 === 1) cell.fill = fill("FFFAF6EE");
+          if (col === 8) cell.numFmt = HRS;
+          if (col === 9 && !folha) cell.numFmt = BRL;
+        });
+        if (linhaExcedeu(i, excedidos)) row.getCell(2).font = font(10, { color: { argb: VERMELHO } }); // só a cor (sem negrito)
+        if (folha) row.getCell(9).font = font(9, { bold: true, color: { argb: "FF6B5B45" } });
+        const sc = row.getCell(10);
+        sc.font = font(9, { bold: true, color: { argb: STATUS_COLOR[i.status] ?? "FF333333" } });
+        sc.fill = fill(STATUS_BG[i.status] ?? "FFEEEEEE");
       });
-      if (linhaExcedeu(i, excedidos)) row.getCell(2).font = font(10, { color: { argb: VERMELHO } }); // só a cor (sem negrito)
-      if (folha) row.getCell(9).font = font(9, { bold: true, color: { argb: "FF6B5B45" } });
-      const sc = row.getCell(10);
-      sc.font = font(9, { bold: true, color: { argb: STATUS_COLOR[i.status] ?? "FF333333" } });
-      sc.fill = fill(STATUS_BG[i.status] ?? "FFEEEEEE");
-    });
 
-    // Sem linha em branco entre funcionários: a borda do subtotal + a faixa do próximo cabeçalho já separam.
-    // Colunas 1-6 vazias (null) para o rótulo, alinhado à direita, poder transbordar para a esquerda.
-    const sub = ws.addRow([null, null, null, null, null, null, `TOTAL ${g.nome}`, g.horas, g.valor, `${g.items.length} reg.`]);
-    sub.eachCell({ includeEmpty: true }, (cell) => {
-      cell.font = font(10, { bold: true, color: { argb: "FF3D3022" } });
-      cell.fill = fill("FFEFE6D6");
+      // Sem linha em branco entre funcionários: a borda do subtotal + a faixa do próximo cabeçalho já separam.
+      // Colunas 1-6 vazias (null) para o rótulo, alinhado à direita, poder transbordar para a esquerda.
+      const sub = ws.addRow([null, null, null, null, null, null, `TOTAL ${g.nome}`, g.horas, g.valor, `${g.items.length} reg.`]);
+      sub.eachCell({ includeEmpty: true }, (cell) => {
+        cell.font = font(10, { bold: true, color: { argb: "FF3D3022" } });
+        cell.fill = fill("FFEFE6D6");
+        cell.alignment = { horizontal: "center", vertical: "middle" };
+        cell.border = { top: { style: "thin", color: { argb: "FF6B5B45" } } };
+      });
+      sub.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
+      sub.getCell(8).numFmt = HRS;
+      sub.getCell(9).numFmt = BRL;
+      sub.height = ALTURA;
+    }
+
+    const t = b.totais;
+    const se = ws.addRow([null, null, null, null, null, null, `SUBTOTAL ${nomeEmpresa}`, t.horas, t.valor, `${t.total} reg.`]);
+    se.eachCell({ includeEmpty: true }, (cell) => {
+      cell.font = font(10, { bold: true, color: { argb: "FFFFFFFF" } });
+      cell.fill = fill("FF6B5B45");
       cell.alignment = { horizontal: "center", vertical: "middle" };
-      cell.border = { top: { style: "thin", color: { argb: "FF6B5B45" } } };
+      cell.border = { top: dark };
     });
-    sub.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
-    sub.getCell(8).numFmt = HRS;
-    sub.getCell(9).numFmt = BRL;
-    sub.height = ALTURA;
+    se.getCell(7).alignment = { horizontal: "right", vertical: "middle" };
+    se.getCell(8).numFmt = HRS;
+    se.getCell(9).numFmt = BRL;
+    se.height = ALTURA;
+    const porStatus = [["Aprovadas", "APROVADA"], ["Pendentes", "PENDENTE"], ["Negadas", "NEGADA"], ["Canceladas", "CANCELADA"], ["Canc. solicitado", "CANCELAMENTO_SOLICITADO"]]
+      .filter(([, s]) => s !== "CANCELAMENTO_SOLICITADO" || t[s])
+      .map(([l, s]) => `${l}: ${t[s] ?? 0}`);
+    const st = ws.addRow([[`Movimentações: ${t.total}`, ...porStatus].join("   |   ")]);
+    ws.mergeCells(st.number, 1, st.number, 10);
+    Object.assign(st.getCell(1), { font: font(9, { bold: true, color: { argb: "FF3D3022" } }), fill: fill("FFF7F1E5"), alignment: { horizontal: "right", vertical: "middle" } });
+    st.height = ALTURA;
   }
 
   if (rows.length) {
