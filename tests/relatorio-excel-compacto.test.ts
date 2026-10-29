@@ -54,7 +54,8 @@ for (const [nome, items, status] of [["todos", base, ""], ["só NEGADA", filtrar
     assert.equal(novo.getCell("A3").value, orig.getCell("A5").value); // resumo com valor total
     assert.equal(novo.getCell("G1").value, orig.getCell("A3").value); // emitido em
     const cab = (ws: ExcelJS.Worksheet, r: number) => (ws.getRow(r).values as unknown[]).slice(1);
-    assert.deepEqual(cab(novo, 4), cab(orig, 6)); // mesmas colunas
+    assert.deepEqual(cab(novo, 4).slice(0, 10), cab(orig, 6)); // mesmas 10 colunas, mesma ordem
+    assert.deepEqual(cab(novo, 4).slice(10), ["Observações"]); // só a coluna K é nova
   });
 }
 

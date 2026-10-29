@@ -97,8 +97,8 @@ test("Excel: blocos, subtotais e contagem por status por empresa; cada FT uma ve
 
   // resumo do topo continua geral
   assert.match(String(ws.getCell("A3").value), new RegExp(`^Total: ${base.length} `));
-  assert.equal(ws.columnCount, 10);
-  assert.deepEqual((ws.getRow(4).values as unknown[]).slice(1), ["Data", "Colaborador", "RE", "Cargo", "Funcionário faltante", "Posto da falta", "Escala", "Horas Trab.", "Valor (R$)", "Status"]);
+  assert.equal(ws.columnCount, 11);
+  assert.deepEqual((ws.getRow(4).values as unknown[]).slice(1), ["Data", "Colaborador", "RE", "Cargo", "Funcionário faltante", "Posto da falta", "Escala", "Horas Trab.", "Valor (R$)", "Status", "Observações"]);
 });
 
 test("impressão: sem quebras forçadas entre empresas; A4 retrato, 1 página de largura, altura automática, cabeçalho repetido", async () => {
