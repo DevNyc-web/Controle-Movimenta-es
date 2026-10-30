@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useServerFn } from "@tanstack/react-start";
-import { getLancadorFt } from "@/lib/ft.functions";
+import { getLancadorFt, getSolicitacaoCancelamentoFt } from "@/lib/ft.functions";
+import { descreverSolicitacao } from "@/lib/cancelamento";
 import { centavosDe, descreverCorrecao, formatarCentavos, montarCorrecao, parseValorCentavos, valorNoRelatorio } from "@/lib/ft-valor";
 
 export const Route = createFileRoute("/_app/ft/$id")({
@@ -32,6 +33,13 @@ function FtDetalhe() {
   // undefined = carregando; null = não identificado (sem lancado_por, sem perfil ou falha). Nunca o aprovador.
   const [lancador, setLancador] = useState<string | null | undefined>(undefined);
   const buscarLancador = useServerFn(getLancadorFt);
+  // Solicitação de cancelamento exibida (pendente; senão a mais recente). undefined = carregando; null = nenhuma.
+  const [solicitacao, setSolicitacao] = useState<
+    Awaited<ReturnType<typeof getSolicitacaoCancelamentoFt>> | "erro" | undefined
+  >(undefined);
+  const buscarSolicitacao = useServerFn(getSolicitacaoCancelamentoFt);
+  // Ações desta tela que mudam a solicitação (solicitar, cancelar direto) incrementam: rebusca sem nova consulta na abertura.
+  const [recarga, setRecarga] = useState(0);
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [motivo, setMotivo] = useState("");
@@ -52,6 +60,20 @@ function FtDetalhe() {
       .catch(() => { if (vivo) setLancador(null); });
     return () => { vivo = false; };
   }, [id]);
+  useEffect(() => {
+    let vivo = true; // resposta de outra FT (navegação rápida) nunca é exibida nesta
+    setSolicitacao(undefined);
+    buscarSolicitacao({ data: { ftId: id } })
+      .then((r) => {
+        if (vivo) setSolicitacao(r);
+      })
+      .catch(() => {
+        if (vivo) setSolicitacao("erro");
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [id, recarga, buscarSolicitacao]);
   async function load() {
     const { data } = await supabase.from("ft").select("*, funcionario:funcionarios!ft_funcionario_id_fkey(*), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re, empresa)").eq("id", id).maybeSingle();
     setFt(data);
@@ -73,6 +95,7 @@ function FtDetalhe() {
     else {
       toast.success(`Movimentação ${status.toLowerCase()}`);
       load();
+      setRecarga((n) => n + 1); // cancelamento direto encerra a solicitação pendente (trigger)
     }
   }
 
@@ -119,6 +142,7 @@ function FtDetalhe() {
       setShowCancelModal(false);
       setMotivo("");
       load();
+      setRecarga((n) => n + 1);
     }
   }
 
@@ -158,6 +182,18 @@ function FtDetalhe() {
         {ft.observacao && <Info label="Observação" value={ft.observacao} className="col-span-2" />}
         <Info label="Lançado por" value={lancador === undefined ? "Carregando..." : lancador ?? "Não identificado"} />
         <Info label="Data do lançamento" value={format(new Date(ft.created_at), "dd/MM/yyyy HH:mm")} />
+        {solicitacao === "erro" && (
+          <Info label="Cancelamento solicitado por" value="Não foi possível carregar" />
+        )}
+        {solicitacao && solicitacao !== "erro" && (
+          <Info
+            label="Cancelamento solicitado por"
+            value={descreverSolicitacao({
+              ...solicitacao,
+              data: format(new Date(solicitacao.createdAt), "dd/MM/yyyy HH:mm"),
+            })}
+          />
+        )}
         {ft.data_cancelamento && <Info label="Cancelada em" value={format(new Date(ft.data_cancelamento), "dd/MM/yyyy HH:mm")} />}
       </div>
 
@@ -212,7 +248,8 @@ function FtDetalhe() {
         </div>
       )}
 
-      {isSupervisor && isPending && ft.lancado_por === user?.id && (
+      {/* Qualquer supervisor solicita (não só quem lançou); a RLS grava solicitado_por = auth.uid() e só aceita FT PENDENTE. */}
+      {isSupervisor && isPending && (
         <button
           onClick={() => setShowCancelModal(true)}
           className="inline-flex items-center gap-2 text-xs text-orange-600 hover:underline"

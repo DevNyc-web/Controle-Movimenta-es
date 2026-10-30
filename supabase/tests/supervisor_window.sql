@@ -3,7 +3,7 @@
 -- Tudo roda em transação com ROLLBACK final: nada persiste. Qualquer ASSERT falho aborta com a mensagem do caso.
 -- Fixtures (UUIDs fixos): usuários a0..01 sup1, a0..02 sup2, a0..03 gestor, a0..04 admin, a0..05 apontamento.
 -- "hoje" = data civil em America/Sao_Paulo (mesma regra da migration).
--- STATUS: escrito, AINDA NÃO EXECUTADO em nenhum banco.
+-- STATUS: validado localmente em PGlite (harness com shim de auth/roles do Supabase), inclusive com 20261030120000.
 
 BEGIN;
 
@@ -126,20 +126,62 @@ END $$;
 
 -- ---------------------------------------------------------------- 3) SUPERVISOR (sup1): solicitação de cancelamento
 -- Cada tentativa negada deve devolver EXATAMENTE o mesmo (SQLSTATE, mensagem) da negação real da RLS (caso C).
+-- Desde 20261030120000 qualquer supervisor solicita cancelamento de FT PENDENTE de outro supervisor (caso F).
 DO $$
 DECLARE
   generic_state text; generic_msg text;
-  r record; st text; msg text;
+  r record; st text; msg text; sol uuid;
 BEGIN
-  -- C) FT de OUTRO supervisor, dentro da janela, PENDENTE: o trigger passa e a RLS (ownership) nega. É a referência.
+  -- C) solicitado_por forjado (sup2) em FT PENDENTE na janela: o trigger passa e a RLS (solicitado_por = auth.uid()) nega.
+  --    É a referência da negação genérica. A FT não pode ficar alterada (o UPDATE do trigger é desfeito junto).
   BEGIN
     INSERT INTO public.ft_cancelamento_solicitacoes (ft_id, solicitado_por, motivo)
-    VALUES ('f0000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000001', 'teste ownership');
-    RAISE EXCEPTION 'FALHA(C): supervisor solicitou cancelamento de FT de outro supervisor';
+    VALUES ('f0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 'teste solicitante forjado');
+    RAISE EXCEPTION 'FALHA(C): supervisor registrou solicitação em nome de outro usuário';
   EXCEPTION WHEN insufficient_privilege THEN
     GET STACKED DIAGNOSTICS generic_msg = MESSAGE_TEXT; generic_state := SQLSTATE;
   END;
   ASSERT generic_state = '42501', 'C: esperado 42501, veio ' || coalesce(generic_state, 'nada');
+  ASSERT (SELECT status FROM public.ft WHERE id = 'f0000000-0000-0000-0000-000000000002') = 'PENDENTE',
+         'C: negação da RLS deve desfazer a mudança de status feita pelo trigger';
+
+  -- F) FT de OUTRO supervisor (sup2), dentro da janela, PENDENTE: agora permitido. Solicitante = sup1, lançador continua sup2.
+  INSERT INTO public.ft_cancelamento_solicitacoes (ft_id, solicitado_por, motivo)
+  VALUES ('f0000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000001', 'sup1 pede FT de sup2')
+  RETURNING id INTO sol;
+  ASSERT (SELECT status FROM public.ft WHERE id = 'f0000000-0000-0000-0000-000000000007') = 'CANCELAMENTO_SOLICITADO',
+         'F: FT de outro supervisor deve virar CANCELAMENTO_SOLICITADO';
+  ASSERT (SELECT solicitado_por FROM public.ft_cancelamento_solicitacoes WHERE id = sol) = 'a0000000-0000-0000-0000-000000000001',
+         'F: solicitado_por deve ser o supervisor autenticado (sup1)';
+  ASSERT (SELECT lancado_por FROM public.ft WHERE id = 'f0000000-0000-0000-0000-000000000007') = 'a0000000-0000-0000-0000-000000000002',
+         'F: lancado_por deve continuar sendo sup2';
+  ASSERT (SELECT motivo || '|' || status FROM public.ft_cancelamento_solicitacoes WHERE id = sol) = 'sup1 pede FT de sup2|PENDENTE',
+         'F: motivo e status PENDENTE preservados';
+  ASSERT (SELECT alterado_por FROM public.ft_historico
+           WHERE ft_id = 'f0000000-0000-0000-0000-000000000007' AND status_novo = 'CANCELAMENTO_SOLICITADO') = 'a0000000-0000-0000-0000-000000000001',
+         'F: histórico da FT deve registrar sup1 como autor da solicitação';
+
+  -- G) supervisor não aprova nem rejeita (nem a própria solicitação): RPCs exigem gestor/admin.
+  BEGIN
+    PERFORM public.aprovar_cancelamento(sol, 'auto-aprovação');
+    RAISE EXCEPTION 'FALHA(G): supervisor aprovou cancelamento';
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS msg = MESSAGE_TEXT;
+    ASSERT msg LIKE 'PERMISSAO:%', 'G: aprovar por supervisor deve dar PERMISSAO; veio: ' || msg;
+  END;
+  BEGIN
+    PERFORM public.rejeitar_cancelamento(sol, 'auto-rejeição');
+    RAISE EXCEPTION 'FALHA(G): supervisor rejeitou cancelamento';
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS msg = MESSAGE_TEXT;
+    ASSERT msg LIKE 'PERMISSAO:%', 'G: rejeitar por supervisor deve dar PERMISSAO; veio: ' || msg;
+  END;
+  -- G2) sem policy de UPDATE: tentativa direta não altera nada (nem a solicitação, nem a FT)
+  UPDATE public.ft_cancelamento_solicitacoes SET status = 'APROVADO', decidido_por = 'a0000000-0000-0000-0000-000000000001' WHERE id = sol;
+  UPDATE public.ft SET status = 'CANCELADA' WHERE id = 'f0000000-0000-0000-0000-000000000007';
+  ASSERT (SELECT status FROM public.ft_cancelamento_solicitacoes WHERE id = sol) = 'PENDENTE', 'G2: UPDATE direto na solicitação não pode ter efeito';
+  ASSERT (SELECT status FROM public.ft WHERE id = 'f0000000-0000-0000-0000-000000000007') = 'CANCELAMENTO_SOLICITADO',
+         'G2: supervisor não cancela FT diretamente';
 
   -- B/E/D) fora da janela com status distintos (PENDENTE, APROVADA, CANCELADA), FT de outro supervisor fora da janela
   -- e ID inexistente: todas devem ser indistinguíveis da negação genérica acima.
@@ -181,9 +223,23 @@ DECLARE v int[];
 BEGIN
   SELECT array_agg(right(id::text, 1)::int ORDER BY id) INTO v FROM public.ft WHERE id::text LIKE 'f0000000-0000-0000-0000-00000000000_';
   ASSERT v = ARRAY[1,2,3,7], 'SUPERVISOR sup2 deve ver as mesmas FTs da janela (inclusive as de sup1); viu ' || coalesce(v::text, 'nada');
-  -- sup2 solicita cancelamento da própria ft7 (dentro da janela): permitido (usado adiante pelo teste do admin)
+  -- Duplicidade: ft7 já tem solicitação PENDENTE (de sup1); o lançador sup2 não cria outra.
+  BEGIN
+    INSERT INTO public.ft_cancelamento_solicitacoes (ft_id, solicitado_por, motivo)
+    VALUES ('f0000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000002', 'duplicada');
+    RAISE EXCEPTION 'FALHA: solicitação duplicada aceita';
+  EXCEPTION WHEN OTHERS THEN
+    ASSERT SQLERRM LIKE 'ESTADO_INVALIDO:%', 'duplicada: esperado ESTADO_INVALIDO; veio: ' || SQLERRM;
+  END;
+  ASSERT (SELECT count(*) FROM public.ft_cancelamento_solicitacoes
+           WHERE ft_id = 'f0000000-0000-0000-0000-000000000007' AND status = 'PENDENTE') = 1, 'deve existir só 1 solicitação PENDENTE para ft7';
+  -- O que o detalhe da FT lê com o cliente do usuário (getSolicitacaoCancelamentoFt): o lançador sup2 vê quem pediu (sup1).
+  ASSERT (SELECT solicitado_por FROM public.ft_cancelamento_solicitacoes
+           WHERE ft_id = 'f0000000-0000-0000-0000-000000000007' AND status = 'PENDENTE') = 'a0000000-0000-0000-0000-000000000001',
+         'sup2 deve ler a solicitação de ft7 com solicitado_por = sup1';
+  -- sup2 solicita a FT de sup1 na janela (ft3): simétrico ao caso F
   INSERT INTO public.ft_cancelamento_solicitacoes (ft_id, solicitado_por, motivo)
-  VALUES ('f0000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000002', 'teste sup2');
+  VALUES ('f0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000002', 'sup2 pede FT de sup1');
 END $$;
 
 -- ---------------------------------------------------------------- 5) ADMIN / GESTOR / APONTAMENTO — leitura sem janela
@@ -238,6 +294,56 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000004', true);
   PERFORM public.rejeitar_cancelamento(sol_sup2, 'ok admin');
   ASSERT (SELECT status FROM public.ft WHERE id = 'f0000000-0000-0000-0000-000000000007') = 'PENDENTE', 'admin rejeita => FT volta a PENDENTE';
+  ASSERT (SELECT solicitado_por::text || '|' || decidido_por::text || '|' || status FROM public.ft_cancelamento_solicitacoes WHERE id = sol_sup2)
+         = 'a0000000-0000-0000-0000-000000000001|a0000000-0000-0000-0000-000000000004|REJEITADO',
+         'rejeição preserva o solicitante (sup1) e registra o decisor (admin)';
+
+  -- FT já CANCELADA (ft1, dentro da janela): nenhum supervisor solicita, nem quem não lançou.
+  PERFORM set_config('request.jwt.claims', '{"sub":"a0000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+  PERFORM set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000002', true);
+  BEGIN
+    INSERT INTO public.ft_cancelamento_solicitacoes (ft_id, solicitado_por, motivo)
+    VALUES ('f0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'FT já cancelada');
+    RAISE EXCEPTION 'FALHA: solicitação para FT cancelada aceita';
+  EXCEPTION WHEN OTHERS THEN
+    ASSERT SQLERRM LIKE 'ESTADO_INVALIDO:%', 'FT cancelada: esperado ESTADO_INVALIDO; veio: ' || SQLERRM;
+  END;
+  -- Após rejeição, nova solicitação para a mesma FT é aceita (histórico mantém a anterior REJEITADO).
+  INSERT INTO public.ft_cancelamento_solicitacoes (ft_id, solicitado_por, motivo)
+  VALUES ('f0000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000002', 'nova após rejeição');
+  ASSERT (SELECT count(*) FROM public.ft_cancelamento_solicitacoes WHERE ft_id = 'f0000000-0000-0000-0000-000000000007') = 2,
+         'ft7 deve manter a solicitação REJEITADO e ter 1 nova PENDENTE';
+
+  -- Apontamento (não supervisor) continua sem poder solicitar, mesmo em FT PENDENTE visível.
+  PERFORM set_config('request.jwt.claims', '{"sub":"a0000000-0000-0000-0000-000000000005","role":"authenticated"}', true);
+  PERFORM set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000005', true);
+  BEGIN
+    INSERT INTO public.ft_cancelamento_solicitacoes (ft_id, solicitado_por, motivo)
+    VALUES ('f0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000005', 'apontamento tenta');
+    RAISE EXCEPTION 'FALHA: apontamento criou solicitação';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  -- Gestor também não (policy exige role supervisor), mesmo em FT PENDENTE dentro da janela.
+  PERFORM set_config('request.jwt.claims', '{"sub":"a0000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
+  PERFORM set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-000000000003', true);
+  BEGIN
+    INSERT INTO public.ft_cancelamento_solicitacoes (ft_id, solicitado_por, motivo)
+    VALUES ('f0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000003', 'gestor tenta (na janela)');
+    RAISE EXCEPTION 'FALHA: gestor criou solicitação';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+  ASSERT (SELECT status FROM public.ft WHERE id = 'f0000000-0000-0000-0000-000000000002') = 'PENDENTE', 'tentativas negadas não alteram a FT';
+END $$;
+
+-- ---------------------------------------------------------------- 7) anônimo continua sem acesso
+RESET ROLE;
+SET LOCAL ROLE anon;
+DO $$
+BEGIN
+  INSERT INTO public.ft_cancelamento_solicitacoes (ft_id, solicitado_por, motivo)
+  VALUES ('f0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'anon tenta');
+  RAISE EXCEPTION 'FALHA: anon criou solicitação';
+EXCEPTION WHEN insufficient_privilege THEN NULL;
 END $$;
 
 RESET ROLE;
