@@ -51,15 +51,30 @@ function Aprovacoes() {
 
     const { data: sols } = await supabase
       .from("ft_cancelamento_solicitacoes")
-      .select("*, ft:ft(numero_ft, data_ft, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, empresa))")
+      .select(
+        "*, ft:ft(numero_ft, data_ft, lancado_por, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, empresa))",
+      )
       .eq("status", "PENDENTE")
       .order("created_at");
 
     if (sols && sols.length > 0) {
-      const ids = [...new Set(sols.map((s: any) => s.solicitado_por))];
+      // Solicitante (quem pediu) e lançador (quem criou a FT) podem ser supervisores diferentes.
+      const ids = [
+        ...new Set(
+          sols
+            .flatMap((s) => [s.solicitado_por, s.ft?.lancado_por])
+            .filter((x): x is string => !!x),
+        ),
+      ];
       const { data: profs } = await supabase.from("profiles").select("id, nome").in("id", ids);
       const profileMap = Object.fromEntries((profs ?? []).map((p: any) => [p.id, p.nome]));
-      setSolicitacoes(sols.map((s: any) => ({ ...s, supervisor_nome: profileMap[s.solicitado_por] ?? "—" })));
+      setSolicitacoes(
+        sols.map((s) => ({
+          ...s,
+          solicitante_nome: profileMap[s.solicitado_por] ?? "—",
+          lancador_nome: (s.ft?.lancado_por && profileMap[s.ft.lancado_por]) ?? "—",
+        })),
+      );
     } else {
       setSolicitacoes([]);
     }
@@ -181,7 +196,8 @@ function Aprovacoes() {
                       </div>
                       <p className="text-xs text-oak-dark/60">
                         Data da FT: {s.ft?.data_ft ? format(new Date(s.ft.data_ft + "T00:00:00"), "dd/MM/yyyy") : "—"}
-                        {" · "}Supervisor: {s.supervisor_nome}
+                        {" · "}Solicitado por: {s.solicitante_nome}
+                        {" · "}Lançado por: {s.lancador_nome}
                         {" · "}Solicitado em: {format(new Date(s.created_at), "dd/MM/yyyy HH:mm")}
                       </p>
                       <p className="text-sm mt-2 text-oak-dark/90">
