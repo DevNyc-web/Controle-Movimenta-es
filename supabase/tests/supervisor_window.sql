@@ -94,7 +94,7 @@ BEGIN
     AND has_function_privilege('authenticated', p.oid, 'EXECUTE')
     AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.deptype = 'e') -- ignora funções de extensões (ex.: pgcrypto em public)
     AND p.proname NOT IN ('has_role', 'valor_folga_por_cargo', 'aprovar_cancelamento', 'rejeitar_cancelamento',
-                          'ft_na_janela_supervisor', 'pode_ver_ft_data', 'supervisor_restrito');
+                          'ft_na_janela_supervisor', 'pode_ver_ft_data', 'conta_ativa', 'anular_inatividade', 'supervisor_restrito');
   ASSERT extra IS NULL, 'RPC/função nova executável por authenticated, revisar vazamento de FT: ' || extra;
 END $$;
 

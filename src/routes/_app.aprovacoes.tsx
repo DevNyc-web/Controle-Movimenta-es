@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { mensagemRegra } from "@/lib/funcionario-status";
 import { StatusBadge } from "@/components/StatusBadge";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
@@ -82,7 +83,7 @@ function Aprovacoes() {
 
   async function decide(id: string, status: "APROVADA" | "NEGADA") {
     const { error } = await supabase.from("ft").update({ status, aprovado_por: user?.id }).eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(mensagemRegra(error.message));
     else {
       toast.success(`Movimentação ${status.toLowerCase()}`);
       load();

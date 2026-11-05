@@ -115,6 +115,9 @@ export const setUserActive = createServerFn({ method: "POST" })
     if (beforeErr) throw new Error(beforeErr.message);
     const { error: updateErr } = await supabaseAdmin.from("profiles").update({ ativo: data.ativo }).eq("id", data.userId);
     if (updateErr) throw new Error(updateErr.message);
+    // Sem isto a senha continuaria emitindo token; a RLS já nega pelos profiles, o banimento impede o login e a renovação.
+    const { error: banErr } = await supabaseAdmin.auth.admin.updateUserById(data.userId, { ban_duration: data.ativo ? "none" : "876000h" });
+    if (banErr) throw new Error(banErr.message);
     const actor = await getActor(context.userId);
     await logAudit(
       data.ativo ? "ATIVAR_USUARIO" : "DESATIVAR_USUARIO",

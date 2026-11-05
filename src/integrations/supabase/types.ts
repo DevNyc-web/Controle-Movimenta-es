@@ -76,6 +76,9 @@ export type Database = {
           motivo: string | null
           numero_ft: string
           pagamento_em_folha: boolean
+          retroativa_autorizada_em: string | null
+          retroativa_autorizada_por: string | null
+          retroativa_justificativa: string | null
           observacao: string | null
           posto_falta: string | null
           status: Database["public"]["Enums"]["ft_status"]
@@ -99,6 +102,9 @@ export type Database = {
           motivo?: string | null
           numero_ft?: string
           pagamento_em_folha?: boolean
+          retroativa_autorizada_em?: string | null
+          retroativa_autorizada_por?: string | null
+          retroativa_justificativa?: string | null
           observacao?: string | null
           posto_falta?: string | null
           status?: Database["public"]["Enums"]["ft_status"]
@@ -122,6 +128,9 @@ export type Database = {
           motivo?: string | null
           numero_ft?: string
           pagamento_em_folha?: boolean
+          retroativa_autorizada_em?: string | null
+          retroativa_autorizada_por?: string | null
+          retroativa_justificativa?: string | null
           observacao?: string | null
           posto_falta?: string | null
           status?: Database["public"]["Enums"]["ft_status"]
@@ -248,6 +257,54 @@ export type Database = {
           },
         ]
       }
+      funcionario_inatividades: {
+        Row: {
+          anulacao_fts: Json | null
+          anulacao_justificativa: string | null
+          anulada_em: string | null
+          anulada_por: string | null
+          fim: string | null
+          funcionario_id: string
+          id: string
+          inativado_em: string
+          inativado_por: string | null
+          inicio: string
+          motivo_reativacao: string | null
+          reativado_em: string | null
+          reativado_por: string | null
+        }
+        Insert: {
+          anulacao_fts?: Json | null
+          anulacao_justificativa?: string | null
+          anulada_em?: string | null
+          anulada_por?: string | null
+          fim?: string | null
+          funcionario_id: string
+          id?: string
+          inativado_em?: string
+          inativado_por?: string | null
+          inicio: string
+          motivo_reativacao?: string | null
+          reativado_em?: string | null
+          reativado_por?: string | null
+        }
+        Update: {
+          anulacao_fts?: Json | null
+          anulacao_justificativa?: string | null
+          anulada_em?: string | null
+          anulada_por?: string | null
+          fim?: string | null
+          funcionario_id?: string
+          id?: string
+          inativado_em?: string
+          inativado_por?: string | null
+          inicio?: string
+          motivo_reativacao?: string | null
+          reativado_em?: string | null
+          reativado_por?: string | null
+        }
+        Relationships: []
+      }
       funcionarios: {
         Row: {
           banco_horas: number
@@ -263,6 +320,9 @@ export type Database = {
           status: string
           status_ativo: boolean
           supervisor: string | null
+          data_inativacao: string | null
+          inativado_por: string | null
+          reativacao_motivo: string | null
           turno: string
           updated_at: string
           usa_banco_horas: boolean
@@ -281,6 +341,9 @@ export type Database = {
           status?: string
           status_ativo?: boolean
           supervisor?: string | null
+          data_inativacao?: string | null
+          inativado_por?: string | null
+          reativacao_motivo?: string | null
           turno: string
           updated_at?: string
           usa_banco_horas?: boolean
@@ -299,6 +362,9 @@ export type Database = {
           status?: string
           status_ativo?: boolean
           supervisor?: string | null
+          data_inativacao?: string | null
+          inativado_por?: string | null
+          reativacao_motivo?: string | null
           turno?: string
           updated_at?: string
           usa_banco_horas?: boolean
@@ -361,6 +427,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      anular_inatividade: {
+        Args: { _justificativa: string; _periodo_id: string }
+        Returns: undefined
+      }
       aprovar_cancelamento: {
         Args: { _solicitacao_id: string; _obs?: string }
         Returns: undefined

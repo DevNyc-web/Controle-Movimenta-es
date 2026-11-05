@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate, useParams, Link } from "@tanstack/react-r
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { FuncionarioForm } from "@/components/FuncionarioForm";
+import { PeriodosInatividade } from "@/components/PeriodosInatividade";
 import { ChevronLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_app/funcionarios/$id")({
@@ -29,6 +30,7 @@ function EditarFuncionario() {
         <p className="text-muted-foreground mt-1">Editar dados do colaborador.</p>
       </div>
       <FuncionarioForm initial={data} onDone={() => navigate({ to: "/funcionarios" })} />
+      <PeriodosInatividade funcionarioId={id} inativo={data.status === "inativo"} />
     </div>
   );
 }

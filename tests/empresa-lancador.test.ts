@@ -53,7 +53,7 @@ test("telas buscam e exibem empresa", () => {
     ["src/routes/_app.historico.tsx", [/fkey\(nome, re, empresa\)/, /f\.funcionario\.empresa/]],
     ["src/routes/_app.index.tsx", [/fkey\(nome, cargo, empresa\)/, /r\.funcionario\?\.empresa/]],
     ["src/routes/_app.relatorios.tsx", [/cargo, empresa\)/, /g\.empresa/]],
-    ["src/components/FuncionarioPicker.tsx", [/select\("id, nome, re, empresa"\)/, /f\.empresa/, /selected\.empresa/]],
+    ["src/components/FuncionarioPicker.tsx", [/select\("id, nome, re, empresa[,"]/, /f\.empresa/, /selected\.empresa/]],
     ["src/routes/_app.funcionarios.index.tsx", [/<Th>Empresa<\/Th>/, /f\.empresa/]],
     ["src/components/FuncionarioForm.tsx", [/label="Empresa"/, /empresa: form\.empresa \|\| null/]],
   ];
