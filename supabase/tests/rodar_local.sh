@@ -45,7 +45,7 @@ fi
 for t in supabase/tests/*.sql; do
   case "$t" in */local_bootstrap.sql | */local_fixtures.sql) continue ;; esac
   if [ "$ATE" != 99999999999999 ]; then
-    case "$t" in */funcionarios_inativos* | */seguranca_regressao*) continue ;; esac
+    case "$t" in */funcionarios_inativos* | */seguranca_regressao* | */conferencia*) continue ;; esac
   fi
   if sql -f "$t" >/dev/null; then echo "OK    $t"; else echo "FALHA $t"; falhas=$((falhas + 1)); fi
 done
@@ -53,6 +53,8 @@ done
 if [ "$ATE" = 99999999999999 ]; then
   # shellcheck disable=SC1091
   . supabase/tests/funcionarios_inativos_concorrencia.inc
+  # shellcheck disable=SC1091
+  . supabase/tests/conferencia_concorrencia.inc
   # shellcheck disable=SC1091
   . supabase/tests/rollback_local.inc
 fi

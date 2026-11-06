@@ -49,4 +49,4 @@ export function avaliarRetroativa<T extends VinculoFt>(vinculos: (T | undefined)
 }
 
 /** Tira o código técnico do início das mensagens de regra do banco (ex.: "FUNCIONARIO_INATIVO: ..."). */
-export const mensagemRegra = (msg: string) => msg.replace(/^(FUNCIONARIO_INATIVO|RETROATIVA_[A-Z]+|REATIVACAO_MOTIVO|CADASTRO_INATIVO|EXCLUSAO_PROIBIDA|PERMISSAO(?:_FERIAS)?|ANULACAO_[A-Z]+|FT_[A-Z_]+): /, "");
+export const mensagemRegra = (msg: string) => msg.replace(/^(FUNCIONARIO_INATIVO|RETROATIVA_[A-Z]+|REATIVACAO_MOTIVO|CADASTRO_INATIVO|EXCLUSAO_PROIBIDA|PERMISSAO(?:_FERIAS)?|ANULACAO_[A-Z]+|FT_[A-Z_]+|CONFERENCIA_[A-Z]+): /, "");

@@ -19,11 +19,13 @@ import { Route as AppAuditoriaRouteImport } from './routes/_app.auditoria'
 import { Route as AppAprovacoesRouteImport } from './routes/_app.aprovacoes'
 import { Route as AppFuncionariosIndexRouteImport } from './routes/_app.funcionarios.index'
 import { Route as AppFtIndexRouteImport } from './routes/_app.ft.index'
+import { Route as AppConferenciaIndexRouteImport } from './routes/_app.conferencia.index'
 import { Route as AppFuncionariosNovoRouteImport } from './routes/_app.funcionarios.novo'
 import { Route as AppFuncionariosImportarRouteImport } from './routes/_app.funcionarios.importar'
 import { Route as AppFuncionariosIdRouteImport } from './routes/_app.funcionarios.$id'
 import { Route as AppFtNovoRouteImport } from './routes/_app.ft.novo'
 import { Route as AppFtIdRouteImport } from './routes/_app.ft.$id'
+import { Route as AppConferenciaIdRouteImport } from './routes/_app.conferencia.$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -74,6 +76,11 @@ const AppFtIndexRoute = AppFtIndexRouteImport.update({
   path: '/ft/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppConferenciaIndexRoute = AppConferenciaIndexRouteImport.update({
+  id: '/conferencia/',
+  path: '/conferencia/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFuncionariosNovoRoute = AppFuncionariosNovoRouteImport.update({
   id: '/funcionarios/novo',
   path: '/funcionarios/novo',
@@ -99,6 +106,11 @@ const AppFtIdRoute = AppFtIdRouteImport.update({
   path: '/ft/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppConferenciaIdRoute = AppConferenciaIdRouteImport.update({
+  id: '/conferencia/$id',
+  path: '/conferencia/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -108,11 +120,13 @@ export interface FileRoutesByFullPath {
   '/historico': typeof AppHistoricoRoute
   '/relatorios': typeof AppRelatoriosRoute
   '/usuarios': typeof AppUsuariosRoute
+  '/conferencia/$id': typeof AppConferenciaIdRoute
   '/ft/$id': typeof AppFtIdRoute
   '/ft/novo': typeof AppFtNovoRoute
   '/funcionarios/$id': typeof AppFuncionariosIdRoute
   '/funcionarios/importar': typeof AppFuncionariosImportarRoute
   '/funcionarios/novo': typeof AppFuncionariosNovoRoute
+  '/conferencia/': typeof AppConferenciaIndexRoute
   '/ft/': typeof AppFtIndexRoute
   '/funcionarios/': typeof AppFuncionariosIndexRoute
 }
@@ -124,11 +138,13 @@ export interface FileRoutesByTo {
   '/relatorios': typeof AppRelatoriosRoute
   '/usuarios': typeof AppUsuariosRoute
   '/': typeof AppIndexRoute
+  '/conferencia/$id': typeof AppConferenciaIdRoute
   '/ft/$id': typeof AppFtIdRoute
   '/ft/novo': typeof AppFtNovoRoute
   '/funcionarios/$id': typeof AppFuncionariosIdRoute
   '/funcionarios/importar': typeof AppFuncionariosImportarRoute
   '/funcionarios/novo': typeof AppFuncionariosNovoRoute
+  '/conferencia': typeof AppConferenciaIndexRoute
   '/ft': typeof AppFtIndexRoute
   '/funcionarios': typeof AppFuncionariosIndexRoute
 }
@@ -142,11 +158,13 @@ export interface FileRoutesById {
   '/_app/relatorios': typeof AppRelatoriosRoute
   '/_app/usuarios': typeof AppUsuariosRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/conferencia/$id': typeof AppConferenciaIdRoute
   '/_app/ft/$id': typeof AppFtIdRoute
   '/_app/ft/novo': typeof AppFtNovoRoute
   '/_app/funcionarios/$id': typeof AppFuncionariosIdRoute
   '/_app/funcionarios/importar': typeof AppFuncionariosImportarRoute
   '/_app/funcionarios/novo': typeof AppFuncionariosNovoRoute
+  '/_app/conferencia/': typeof AppConferenciaIndexRoute
   '/_app/ft/': typeof AppFtIndexRoute
   '/_app/funcionarios/': typeof AppFuncionariosIndexRoute
 }
@@ -160,11 +178,13 @@ export interface FileRouteTypes {
     | '/historico'
     | '/relatorios'
     | '/usuarios'
+    | '/conferencia/$id'
     | '/ft/$id'
     | '/ft/novo'
     | '/funcionarios/$id'
     | '/funcionarios/importar'
     | '/funcionarios/novo'
+    | '/conferencia/'
     | '/ft/'
     | '/funcionarios/'
   fileRoutesByTo: FileRoutesByTo
@@ -176,11 +196,13 @@ export interface FileRouteTypes {
     | '/relatorios'
     | '/usuarios'
     | '/'
+    | '/conferencia/$id'
     | '/ft/$id'
     | '/ft/novo'
     | '/funcionarios/$id'
     | '/funcionarios/importar'
     | '/funcionarios/novo'
+    | '/conferencia'
     | '/ft'
     | '/funcionarios'
   id:
@@ -193,11 +215,13 @@ export interface FileRouteTypes {
     | '/_app/relatorios'
     | '/_app/usuarios'
     | '/_app/'
+    | '/_app/conferencia/$id'
     | '/_app/ft/$id'
     | '/_app/ft/novo'
     | '/_app/funcionarios/$id'
     | '/_app/funcionarios/importar'
     | '/_app/funcionarios/novo'
+    | '/_app/conferencia/'
     | '/_app/ft/'
     | '/_app/funcionarios/'
   fileRoutesById: FileRoutesById
@@ -279,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFtIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/conferencia/': {
+      id: '/_app/conferencia/'
+      path: '/conferencia'
+      fullPath: '/conferencia/'
+      preLoaderRoute: typeof AppConferenciaIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/funcionarios/novo': {
       id: '/_app/funcionarios/novo'
       path: '/funcionarios/novo'
@@ -314,6 +345,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFtIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/conferencia/$id': {
+      id: '/_app/conferencia/$id'
+      path: '/conferencia/$id'
+      fullPath: '/conferencia/$id'
+      preLoaderRoute: typeof AppConferenciaIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -324,11 +362,13 @@ interface AppRouteChildren {
   AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppUsuariosRoute: typeof AppUsuariosRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppConferenciaIdRoute: typeof AppConferenciaIdRoute
   AppFtIdRoute: typeof AppFtIdRoute
   AppFtNovoRoute: typeof AppFtNovoRoute
   AppFuncionariosIdRoute: typeof AppFuncionariosIdRoute
   AppFuncionariosImportarRoute: typeof AppFuncionariosImportarRoute
   AppFuncionariosNovoRoute: typeof AppFuncionariosNovoRoute
+  AppConferenciaIndexRoute: typeof AppConferenciaIndexRoute
   AppFtIndexRoute: typeof AppFtIndexRoute
   AppFuncionariosIndexRoute: typeof AppFuncionariosIndexRoute
 }
@@ -340,11 +380,13 @@ const AppRouteChildren: AppRouteChildren = {
   AppRelatoriosRoute: AppRelatoriosRoute,
   AppUsuariosRoute: AppUsuariosRoute,
   AppIndexRoute: AppIndexRoute,
+  AppConferenciaIdRoute: AppConferenciaIdRoute,
   AppFtIdRoute: AppFtIdRoute,
   AppFtNovoRoute: AppFtNovoRoute,
   AppFuncionariosIdRoute: AppFuncionariosIdRoute,
   AppFuncionariosImportarRoute: AppFuncionariosImportarRoute,
   AppFuncionariosNovoRoute: AppFuncionariosNovoRoute,
+  AppConferenciaIndexRoute: AppConferenciaIndexRoute,
   AppFtIndexRoute: AppFtIndexRoute,
   AppFuncionariosIndexRoute: AppFuncionariosIndexRoute,
 }

@@ -257,6 +257,54 @@ export type Database = {
           },
         ]
       }
+      conferencias: {
+        Row: {
+          arquivo_abas: string[]
+          arquivo_nome: string
+          criada_em: string
+          criada_por: string
+          encerrada_em: string | null
+          encerrada_por: string | null
+          id: string
+          linhas_ignoradas: number
+          mapeamento: Json
+          motivo_descarte: string | null
+          resultado: Json | null
+          resumo: Json
+          status: string
+          total_impresso: number | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      conferencia_itens: {
+        Row: {
+          acao: string | null
+          acao_sugerida: string | null
+          atual: Json | null
+          conferencia_id: string
+          dados: Json | null
+          decidido_em: string | null
+          decidido_por: string | null
+          decisao: string
+          folha: Json | null
+          funcionario_id: string | null
+          id: string
+          justificativa: string | null
+          motivo: string
+          novo_funcionario_id: string | null
+          opcoes: string[]
+          ordem: number
+          origens: string[]
+          resultado: string | null
+          resultado_detalhe: string | null
+          tipo: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       funcionario_inatividades: {
         Row: {
           anulacao_fts: Json | null
@@ -433,6 +481,22 @@ export type Database = {
       }
       aprovar_cancelamento: {
         Args: { _solicitacao_id: string; _obs?: string }
+        Returns: undefined
+      }
+      conferencia_aplicar: {
+        Args: { _confirmacao: string; _id: string }
+        Returns: Json
+      }
+      conferencia_criar: {
+        Args: { _arquivo: Json; _itens: Json; _resumo: Json }
+        Returns: string
+      }
+      conferencia_decidir: {
+        Args: { _acao?: string; _dados?: Json; _decisao: string; _item: string; _justificativa?: string }
+        Returns: undefined
+      }
+      conferencia_descartar: {
+        Args: { _id: string; _motivo: string }
         Returns: undefined
       }
       has_role: {

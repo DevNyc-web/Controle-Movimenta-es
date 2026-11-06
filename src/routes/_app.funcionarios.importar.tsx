@@ -6,22 +6,11 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Upload, ArrowLeft, CheckCircle2, AlertTriangle } from "lucide-react";
 import { normalizarEmpresa } from "@/lib/empresas";
+import { abasDoWorkbook, cargoReconhecido, celulaTexto, detectarColunas, extrairLinhas } from "@/lib/importacao-funcionarios";
 
 export const Route = createFileRoute("/_app/funcionarios/importar")({
   component: ImportarFuncionarios,
 });
-
-const CARGOS_VALIDOS = ["Vigilante", "Porteiro", "ASG", "Recepcionista", "Manutencista", "Freelancer"];
-
-function mapCargo(raw: string): string {
-  const c = (raw || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (c.includes("VIGILANTE")) return "Vigilante";
-  if (c.includes("LIMPEZA") || c.includes("ZELADOR") || c.includes("ASG") || c.includes("SERVICOS GERAIS") || c.includes("AUX. SERVICOS") || c.includes("AUXILIAR DE SERVICOS")) return "ASG";
-  if (c.includes("PORTARIA") || c.includes("PORTEIRO") || c.includes("VIGIA") || c.includes("CONTROLADOR") || c.includes("ACESSO") || c.includes("MONITORAMENTO") || c.includes("BOMBEIRO") || c.includes("INSPETOR") || c.includes("VISTORIA")) return "Porteiro";
-  if (c.includes("RECEPCION")) return "Recepcionista";
-  if (c.includes("MANUTEN") || c.includes("INSTALADOR") || c.includes("TECNICO")) return "Manutencista";
-  return "Freelancer";
-}
 
 type Row = {
   nome: string;
@@ -37,12 +26,6 @@ type Row = {
   status: string;
   usa_banco_horas: boolean;
 };
-
-function findCol(headers: (string | null)[], names: string[]): number {
-  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  const targets = names.map(norm);
-  return headers.findIndex((h) => h && targets.some((t) => norm(h).includes(t)));
-}
 
 function ImportarFuncionarios() {
   const { isGestor } = useAuth();
@@ -72,80 +55,44 @@ function ImportarFuncionarios() {
       const collected: Row[] = [];
       const errs: string[] = [];
 
-      wb.worksheets.forEach((ws) => {
+      for (const aba of abasDoWorkbook(wb)) {
+        const d = detectarColunas(aba.matriz);
+        if (d.linhaCabecalho < 0 || d.colunas.re === undefined || d.colunas.cargo === undefined) {
+          errs.push(`Aba "${aba.nome}": não foi possível localizar a linha de cabeçalho (Nome/Código/Cargo).`);
+          continue;
+        }
         // empresa pode estar na primeira(s) linha(s) (cabeçalho do relatório)
-        let empresaHeader = "";
-        for (let i = 1; i <= Math.min(3, ws.rowCount); i++) {
-          const v = ws.getRow(i).getCell(1).value;
-          if (v && String(v).trim().length > 3) { empresaHeader = String(v).trim(); break; }
-        }
+        const empresaHeader = aba.matriz.slice(0, 3).map((l) => celulaTexto(l?.[0])).find((v) => v.length > 3) ?? "";
+        const { linhas, ignoradas } = extrairLinhas(aba.matriz, d.linhaCabecalho, d.colunas, aba.nome);
+        if (ignoradas.length > 0) errs.push(`Aba "${aba.nome}": ${ignoradas.length} linha(s) ignorada(s) (cabeçalhos repetidos, totais ou títulos).`);
 
-        // localizar a linha real de cabeçalho: precisa ter Nome + Código/RE + Cargo
-        const norm = (s: any) => String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        let headerRowIdx = -1;
-        for (let i = 1; i <= Math.min(25, ws.rowCount); i++) {
-          const vals = (ws.getRow(i).values as any[]).slice(1).map(norm);
-          const hasNome = vals.some((v) => v === "nome" || v.includes("nome"));
-          const hasCargo = vals.some((v) => v === "cargo" || v.includes("cargo") || v.includes("funcao"));
-          const hasCod = vals.some((v) => v === "codigo" || v.includes("codigo") || v === "re" || v.includes("matricula"));
-          if (hasNome && hasCargo && hasCod) { headerRowIdx = i; break; }
-        }
-        if (headerRowIdx < 0) {
-          errs.push(`Aba "${ws.name}": não foi possível localizar a linha de cabeçalho (Nome/Código/Cargo).`);
-          return;
-        }
-        const headerRow = ws.getRow(headerRowIdx);
-        const headers = (headerRow.values as any[]).slice(1).map((v) => (v == null ? null : String(v)));
-
-        const idxNome = findCol(headers, ["nome"]);
-        const idxCodigo = findCol(headers, ["codigo", "re", "matricula"]);
-        const idxCargo = findCol(headers, ["cargo", "funcao"]);
-        const idxCpf = findCol(headers, ["cpf"]);
-        const idxAdm = findCol(headers, ["admissao", "admissão"]);
-        const idxEmp = findCol(headers, ["empresa", "filial"]);
-
-        for (let i = headerRowIdx + 1; i <= ws.rowCount; i++) {
-          const r = ws.getRow(i);
-          const vals = (r.values as any[]).slice(1);
-          const get = (idx: number) => (idx >= 0 && vals[idx] != null ? String(vals[idx]).trim() : "");
-
-          const nome = get(idxNome);
-          const codigo = get(idxCodigo);
-          const cargoOrig = get(idxCargo);
-          if (!nome || !codigo) continue;
-
-          const cargo = mapCargo(cargoOrig);
-          if (!CARGOS_VALIDOS.includes(cargo)) {
-            errs.push(`Linha ${i} (${ws.name}): cargo "${cargoOrig}" não mapeado.`);
+        for (const l of linhas) {
+          if (!l.nome || !l.re) {
+            errs.push(`Linha ${l.origem}: sem nome ou código; não importada.`);
             continue;
           }
-
-          const empresa = get(idxEmp) || empresaHeader || ws.name;
-          const cpfRaw = get(idxCpf).replace(/\D/g, "");
-          const admRaw = idxAdm >= 0 ? vals[idxAdm] : null;
-          let dataAdm: string | null = null;
-          if (admRaw instanceof Date) dataAdm = admRaw.toISOString().slice(0, 10);
-          else if (admRaw && typeof admRaw === "string") {
-            const m = admRaw.match(/(\d{2})[\/\-](\d{2})[\/\-](\d{4})/);
-            if (m) dataAdm = `${m[3]}-${m[2]}-${m[1]}`;
+          const cargo = cargoReconhecido(l.cargo);
+          if (!cargo) {
+            errs.push(`Linha ${l.origem}: cargo "${l.cargo}" não reconhecido; não importada.`);
+            continue;
           }
-
+          const empresa = l.empresa || empresaHeader || aba.nome;
           collected.push({
-            nome,
-            re: codigo,
+            nome: l.nome,
+            re: l.re,
             cargo,
-            cargo_original: cargoOrig,
+            cargo_original: l.cargo,
             empresa_origem: empresa || cargo,
             empresa: normalizarEmpresa(empresa), // só grava empresa reconhecida; senão fica vazia para revisão
             turno: "Integral",
-            cpf: cpfRaw || null,
-            data_admissao: dataAdm,
+            cpf: l.cpf || null,
+            data_admissao: l.admissao,
             status_ativo: true,
             status: "ativo",
             usa_banco_horas: false,
           });
         }
-      });
+      }
 
       setRows(collected);
       setErrors(errs);
@@ -217,7 +164,7 @@ function ImportarFuncionarios() {
           <div>• Portaria, Porteiro, Vigia, Controlador de Acesso, Monitoramento, Bombeiro, Inspetor, Vistoria → <strong>Porteiro</strong></div>
           <div>• Recepcionista → <strong>Recepcionista</strong></div>
           <div>• Manutenção, Instalador, Técnico → <strong>Manutencista</strong></div>
-          <div>• Demais → <strong>Freelancer</strong></div>
+          <div>• Cargo não reconhecido: a linha <strong>não é importada</strong> e aparece nos avisos.</div>
           <div>• Turno: <strong>Integral</strong> (padrão). RE duplicado entre empresas é permitido.</div>
         </div>
 

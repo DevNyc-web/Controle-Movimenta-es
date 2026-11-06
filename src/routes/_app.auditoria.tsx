@@ -39,6 +39,13 @@ const actionLabel: Record<string, string> = {
   RESET_SENHA: "Redefiniu senha",
   EXCLUIR_USUARIO: "Excluiu usuário",
   ATUALIZAR_USUARIO: "Atualizou usuário",
+  FT_RETROATIVA_EXCECAO: "Lançou FT retroativa por exceção",
+  ANULAR_INATIVIDADE: "Anulou período de inatividade",
+  CONFERENCIA_CRIADA: "Iniciou conferência",
+  CONFERENCIA_DECISAO: "Revisou item da conferência",
+  CONFERENCIA_ITEM_APLICADO: "Aplicou item da conferência",
+  CONFERENCIA_APLICADA: "Aplicou conferência",
+  CONFERENCIA_DESCARTADA: "Descartou conferência",
 };
 
 const entityLabel: Record<string, string> = {
@@ -46,6 +53,9 @@ const entityLabel: Record<string, string> = {
   funcionarios: "Funcionários",
   profiles: "Usuários",
   user_roles: "Perfis de acesso",
+  funcionario_inatividades: "Períodos de inatividade",
+  conferencias: "Conferência",
+  conferencia_itens: "Itens de conferência",
 };
 
 function getModule(log: Log) {
@@ -159,6 +169,8 @@ function AuditoriaPage() {
             <option value="funcionarios">Funcionário</option>
             <option value="profiles">Usuário</option>
             <option value="user_roles">Permissão</option>
+            <option value="conferencias">Conferência</option>
+            <option value="conferencia_itens">Item de conferência</option>
           </select>
         </Field>
         <Field label="De"><input type="date" value={fStart} onChange={(e) => setFStart(e.target.value)} className={inp} /></Field>
