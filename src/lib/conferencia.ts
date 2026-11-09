@@ -1,20 +1,24 @@
-// Comparação da folha com o cadastro. Lógica pura: não grava nada e nunca propõe inativação.
-// CPF válido é a única chave de vínculo automático; nome só confirma. Toda ação aqui é uma proposta para o Gestor decidir.
-import { cpfDaCelula, mascararCpf, nomeNormalizado, type LinhaFolha } from "./importacao-funcionarios.ts";
+// Comparação de planilhas com o cadastro. Lógica pura: não grava nada. CPF válido é a chave; nome só confirma; RE vale dentro da empresa.
+// compararOficial: importação oficial (propostas para o Gestor). compararPagamentos: relatório do Itaú, somente leitura, sem nenhuma ação.
+import { cargoReconhecido, cpfDaCelula, mascararCpf, nomeNormalizado, type LinhaFolha } from "./importacao-funcionarios.ts";
 
 export type TipoItem =
-  | "CORRESPONDENTE" | "DIVERGENCIA_NOME" | "DIVERGENCIA_CPF" | "NOVO" | "INATIVO" | "AUSENTE" | "DUPLICADO" | "PENDENCIA";
+  | "CORRESPONDENTE" | "DIVERGENCIA_NOME" | "DIVERGENCIA_CPF" | "DIVERGENCIA_CARGO" | "DIVERGENCIA_RE" | "DIVERGENCIA_EMPRESA"
+  | "NOVO" | "INATIVO" | "AUSENTE" | "DUPLICADO" | "PENDENCIA";
 
-/** Lista fechada: inativar não existe aqui, de propósito. */
-export type Acao = "ATUALIZAR_NOME" | "PREENCHER_CPF" | "CORRIGIR_CPF" | "CADASTRAR" | "REATIVAR";
+/** Lista fechada, igual à do banco. INATIVAR só para ausente, e o banco ainda exige importação posterior e quadro completo. */
+export type Acao = "ATUALIZAR_NOME" | "PREENCHER_CPF" | "CORRIGIR_CPF" | "CADASTRAR" | "REATIVAR" | "ATUALIZAR_CARGO" | "CORRIGIR_RE" | "CORRIGIR_EMPRESA" | "INATIVAR";
 
 export const TIPO_LABEL: Record<TipoItem, string> = {
   CORRESPONDENTE: "Correspondência",
   DIVERGENCIA_NOME: "Divergência de nome",
   DIVERGENCIA_CPF: "Divergência de CPF",
+  DIVERGENCIA_CARGO: "Divergência de cargo",
+  DIVERGENCIA_RE: "Divergência de RE",
+  DIVERGENCIA_EMPRESA: "Divergência de empresa",
   NOVO: "Novo",
   INATIVO: "Inativo encontrado",
-  AUSENTE: "Ausente da folha",
+  AUSENTE: "Ausente da planilha",
   DUPLICADO: "Duplicidade",
   PENDENCIA: "Pendência",
 };
@@ -25,7 +29,17 @@ export const ACAO_LABEL: Record<Acao, string> = {
   CORRIGIR_CPF: "Corrigir CPF",
   CADASTRAR: "Cadastrar novo funcionário",
   REATIVAR: "Reativar funcionário",
+  ATUALIZAR_CARGO: "Atualizar cargo",
+  CORRIGIR_RE: "Corrigir RE",
+  CORRIGIR_EMPRESA: "Corrigir empresa e RE",
+  INATIVAR: "Inativar funcionário",
 };
+
+/** Ações que exigem justificativa (mesma regra de conferencia_decidir). */
+/** cargos: atual e da planilha. Entrar ou sair de Freelancer muda o valor da FT e quem pode ser inativado por ausência. */
+export const exigeJustificativa = (a: Acao, t: TipoItem, cargos: (string | null | undefined)[] = []) =>
+  ["CORRIGIR_CPF", "PREENCHER_CPF", "REATIVAR", "CORRIGIR_RE", "CORRIGIR_EMPRESA", "INATIVAR"].includes(a) || (a === "CADASTRAR" && t === "PENDENCIA")
+  || (a === "ATUALIZAR_CARGO" && cargos.includes("Freelancer"));
 
 export interface FuncionarioBase {
   id: string;
@@ -38,7 +52,8 @@ export interface FuncionarioBase {
   data_admissao: string | null;
 }
 
-export interface DadosFolha { nome: string; cpf: string; re: string; cargo: string; empresa: string; admissao: string | null }
+/** cargo_sistema: cargo da planilha já traduzido para o cadastro; null quando não reconhecido (fica pendente para o Gestor). */
+export interface DadosFolha { nome: string; cpf: string; re: string; cargo: string; empresa: string; admissao: string | null; cargo_sistema?: string | null }
 
 export interface ItemConferencia {
   tipo: TipoItem;
@@ -69,11 +84,14 @@ export interface ResultadoConferencia { aplicados: number; conflitos: number }
 export interface ConferenciaTela {
   id: string; status: string; arquivo_nome: string; criada_em: string;
   resumo: ResumoConferencia; resultado: ResultadoConferencia | null; motivo_descarte: string | null;
+  empresa: string | null; primeira_da_empresa: boolean | null; quadro_completo_em: string | null; revisao: number;
 }
 
 export interface ResumoConferencia {
   total_folha: number; correspondencias: number; novos: number; ausentes: number;
   divergencias: number; inativos: number; duplicidades: number; pendencias: number;
+  /** Importação oficial: freelancers da empresa fora da avaliação de ausentes. */
+  nao_avaliados?: number;
 }
 
 const LIGACAO = new Set(["DE", "DA", "DO", "DAS", "DOS", "E"]);
@@ -188,6 +206,136 @@ export function compararFolha(linhas: LinhaFolha[], funcionarios: FuncionarioBas
     divergencias: conta("DIVERGENCIA_NOME", "DIVERGENCIA_CPF"), inativos: conta("INATIVO"), duplicidades: conta("DUPLICADO"), pendencias: conta("PENDENCIA"),
   };
   return { itens, resumo };
+}
+
+const contaResumo = (itens: ItemConferencia[], total: number, extra: Partial<ResumoConferencia> = {}): ResumoConferencia => {
+  const conta = (...t: TipoItem[]) => itens.filter((i) => t.includes(i.tipo)).length;
+  return {
+    total_folha: total, correspondencias: conta("CORRESPONDENTE"), novos: conta("NOVO"), ausentes: conta("AUSENTE"),
+    divergencias: conta("DIVERGENCIA_NOME", "DIVERGENCIA_CPF", "DIVERGENCIA_CARGO", "DIVERGENCIA_RE", "DIVERGENCIA_EMPRESA"),
+    inativos: conta("INATIVO"), duplicidades: conta("DUPLICADO"), pendencias: conta("PENDENCIA"), ...extra,
+  };
+};
+
+function agrupa<T>(xs: T[], k: (x: T) => string) {
+  const m = new Map<string, T[]>();
+  for (const x of xs) { const c = k(x); if (c) m.set(c, [...(m.get(c) ?? []), x]); }
+  return m;
+}
+
+export interface ContextoOficial {
+  /** Empresa da planilha (lista fechada). RE só vale dentro dela. */
+  empresa: string;
+  /** Primeira importação desta empresa: ausentes só sinalizados. */
+  primeira: boolean;
+}
+
+/** Importação oficial (Relação Cadastral de UMA empresa). Nada é automático: cada item é uma proposta, e identidade duvidosa não tem ação.
+ *  Freelancer (cargo do CADASTRO, valor controlado) nunca entra na avaliação de ausentes. */
+export function compararOficial(linhas: LinhaFolha[], funcionarios: FuncionarioBase[], ctx: ContextoOficial) {
+  const porCpf = new Map(funcionarios.filter((f) => f.cpf).map((f) => [cpfDaCelula(f.cpf), f]));
+  const daEmpresa = funcionarios.filter((f) => f.empresa === ctx.empresa);
+  const porRe = agrupa(daEmpresa, (f) => f.re.trim());
+  const porNome = agrupa(funcionarios, (f) => nomeNormalizado(f.nome));
+  const cpfsArquivo = agrupa(linhas.filter((l) => l.cpfValido), (l) => l.cpf);
+  const resArquivo = agrupa(linhas, (l) => l.re.trim());
+  const itens: ItemConferencia[] = [];
+  const vistos = new Set<string>();
+  const novo = (i: Omit<ItemConferencia, "opcoes" | "acao"> & { acao?: Acao | null; opcoes?: Acao[] }) =>
+    itens.push({ acao: null, ...i, opcoes: i.opcoes ?? (i.acao ? [i.acao] : []) });
+
+  for (const l of linhas) {
+    const re = l.re.trim();
+    const cargoSis = cargoReconhecido(l.cargo);
+    const base = { folha: { ...dadosFolha(l), cargo_sistema: cargoSis }, origens: [l.origem] };
+    const doRe = re ? porRe.get(re) ?? [] : [];
+    const doCpf = l.cpfValido ? porCpf.get(l.cpf) : undefined;
+    // linha que identifica alguém, mesmo sem ação, impede que ele apareça como ausente
+    if (doCpf) vistos.add(doCpf.id);
+    if (doRe.length === 1) vistos.add(doRe[0].id);
+
+    if (!l.cpfValido) {
+      novo({ ...base, tipo: "PENDENCIA", funcionario_id: null, atual: null, motivo: `${l.cpf ? "CPF inválido" : "CPF ausente"} na planilha oficial` });
+      continue;
+    }
+    if ((cpfsArquivo.get(l.cpf)?.length ?? 0) > 1 || (re && (resArquivo.get(re)?.length ?? 0) > 1)) {
+      novo({ ...base, tipo: "DUPLICADO", funcionario_id: doCpf?.id ?? null, atual: doCpf ? atualDe(doCpf) : null,
+        motivo: (cpfsArquivo.get(l.cpf)?.length ?? 0) > 1 ? "CPF repetido na planilha oficial" : "RE repetido na planilha oficial" });
+      continue;
+    }
+
+    if (doCpf) {
+      const f = doCpf;
+      const mesmoNome = nomeNormalizado(f.nome) === nomeNormalizado(l.nome);
+      const comBase = { ...base, funcionario_id: f.id, atual: atualDe(f) };
+      if (!mesmoNome && !nomesParecidos(f.nome, l.nome)) {
+        novo({ ...comBase, tipo: "PENDENCIA", motivo: "Mesmo CPF com nome sem relação: dúvida de identidade" });
+      } else if (!f.empresa) {
+        novo({ ...comBase, tipo: "PENDENCIA", motivo: "Cadastro sem empresa: identifique a empresa no cadastro antes de atualizar" });
+      } else if (f.empresa !== ctx.empresa) {
+        const livre = !!re && doRe.length === 0;
+        novo({ ...comBase, tipo: "DIVERGENCIA_EMPRESA", opcoes: livre ? ["CORRIGIR_EMPRESA"] : [],
+          motivo: livre ? `Cadastrado em ${f.empresa}; a planilha oficial indica esta empresa` : "Empresa diferente e RE da planilha já usado nesta empresa" });
+      } else if (f.re.trim() !== re) {
+        const livre = !!re && doRe.length === 0;
+        novo({ ...comBase, tipo: "DIVERGENCIA_RE", opcoes: livre ? ["CORRIGIR_RE"] : [],
+          motivo: livre ? "Mesmo CPF com RE diferente" : "Mesmo CPF com RE diferente, e o RE da planilha pertence a outro cadastro" });
+      } else {
+        const antes = itens.length;
+        if (f.status === "inativo") novo({ ...comBase, tipo: "INATIVO", acao: "REATIVAR", motivo: "Funcionário inativo presente na planilha oficial" });
+        if (!mesmoNome) novo({ ...comBase, tipo: "DIVERGENCIA_NOME", acao: "ATUALIZAR_NOME", motivo: "Mesmo CPF com nome diferente" });
+        if (!cargoSis) novo({ ...comBase, tipo: "PENDENCIA", motivo: `Cargo "${l.cargo}" não reconhecido: o cargo atual não é alterado` });
+        else if (cargoSis !== f.cargo) novo({ ...comBase, tipo: "DIVERGENCIA_CARGO", acao: "ATUALIZAR_CARGO", motivo: `Cargo ${f.cargo} no cadastro e ${cargoSis} na planilha` });
+        if (itens.length === antes) novo({ ...comBase, tipo: "CORRESPONDENTE", motivo: f.status === "ferias" ? "Confere; segue de férias" : "Confere" });
+      }
+      continue;
+    }
+
+    // CPF sem cadastro
+    if (doRe.length > 1) {
+      for (const f of doRe) vistos.add(f.id);
+      novo({ ...base, tipo: "PENDENCIA", funcionario_id: null, atual: null, motivo: `RE repetido em ${doRe.length} cadastros desta empresa: identidade ambígua` });
+    } else if (doRe.length === 1) {
+      const c = doRe[0];
+      const nomeOk = nomeNormalizado(c.nome) === nomeNormalizado(l.nome) || nomesParecidos(c.nome, l.nome);
+      if (!nomeOk) novo({ ...base, tipo: "PENDENCIA", funcionario_id: c.id, atual: atualDe(c), motivo: "Mesmo RE com nome sem relação: dúvida de identidade" });
+      else if (!c.cpf) novo({ ...base, tipo: "PENDENCIA", funcionario_id: c.id, atual: atualDe(c), acao: "PREENCHER_CPF", motivo: "Cadastro deste RE sem CPF: confirme a identidade" });
+      else novo({ ...base, tipo: "DIVERGENCIA_CPF", funcionario_id: c.id, atual: atualDe(c), acao: "CORRIGIR_CPF", motivo: "Mesmo RE e nome com CPF diferente" });
+    } else if ((porNome.get(nomeNormalizado(l.nome)) ?? []).length) {
+      novo({ ...base, tipo: "PENDENCIA", funcionario_id: null, atual: null, opcoes: ["CADASTRAR"], motivo: "Já existe cadastro com este nome e outro CPF: possível homônimo" });
+    } else {
+      novo({ ...base, tipo: "NOVO", funcionario_id: null, atual: null, acao: "CADASTRAR",
+        motivo: cargoSis ? "CPF sem cadastro no sistema" : `CPF sem cadastro; cargo "${l.cargo}" não reconhecido: escolha o cargo ao cadastrar` });
+    }
+  }
+
+  // Duas linhas diferentes apontando para o mesmo cadastro: nenhuma alteração nele.
+  const linhasDe = new Map<string, Set<string>>();
+  for (const i of itens) if (i.funcionario_id) linhasDe.set(i.funcionario_id, (linhasDe.get(i.funcionario_id) ?? new Set()).add(i.origens[0]));
+  for (const i of itens) {
+    if (!i.funcionario_id || (linhasDe.get(i.funcionario_id)?.size ?? 0) < 2 || !i.opcoes.some((a) => a !== "CADASTRAR")) continue;
+    Object.assign(i, { tipo: "PENDENCIA", acao: null, opcoes: i.opcoes.filter((a) => a === "CADASTRAR"), motivo: "Mais de uma linha da planilha aponta para este cadastro: dúvida de identidade" });
+  }
+
+  let naoAvaliados = 0;
+  for (const f of daEmpresa) {
+    if (f.status === "inativo" || vistos.has(f.id)) continue;
+    if (f.cargo === "Freelancer") { naoAvaliados++; continue; }
+    novo({ tipo: "AUSENTE", funcionario_id: f.id, folha: null, atual: atualDe(f), origens: [], opcoes: ctx.primeira ? [] : ["INATIVAR"],
+      motivo: ctx.primeira ? "Ausente da primeira importação desta empresa: apenas sinalizado" : "Ausente da planilha oficial; inativar exige quadro completo confirmado" });
+  }
+  return { itens, resumo: contaResumo(itens, linhas.length, { nao_avaliados: naoAvaliados }) };
+}
+
+/** Relatório do Itaú: somente leitura. Nenhum item tem ação, e ausência no relatório não é sinalizada como problema do cadastro. */
+export function compararPagamentos(linhas: LinhaFolha[], funcionarios: FuncionarioBase[]) {
+  const itens = compararFolha(linhas, funcionarios).itens
+    .filter((i) => i.tipo !== "AUSENTE")
+    .map((i) => ({
+      ...i, acao: null, opcoes: [] as Acao[],
+      motivo: i.folha && i.folha.cpf.replace(/\D/g, "").length === 14 ? "Pagamento a CNPJ" : i.tipo === "NOVO" ? "Pagamento sem funcionário identificado" : i.tipo === "INATIVO" ? "Pagamento a funcionário inativo" : i.motivo,
+    }));
+  return { itens, resumo: contaResumo(itens, linhas.length) };
 }
 
 /** O que o navegador recebe: nunca o CPF completo. */

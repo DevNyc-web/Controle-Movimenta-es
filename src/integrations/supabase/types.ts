@@ -273,6 +273,11 @@ export type Database = {
           resumo: Json
           status: string
           total_impresso: number | null
+          empresa: string | null
+          primeira_da_empresa: boolean | null
+          quadro_completo_em: string | null
+          quadro_completo_por: string | null
+          revisao: number
         }
         Insert: never
         Update: never
@@ -300,6 +305,17 @@ export type Database = {
           resultado: string | null
           resultado_detalhe: string | null
           tipo: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      importacao_empresas: {
+        Row: {
+          conferencia_id: string
+          empresa: string
+          validada_em: string
+          validada_por: string
         }
         Insert: never
         Update: never
@@ -484,7 +500,7 @@ export type Database = {
         Returns: undefined
       }
       conferencia_aplicar: {
-        Args: { _confirmacao: string; _id: string }
+        Args: { _confirmacao: string; _id: string; _revisao: number }
         Returns: Json
       }
       conferencia_criar: {
@@ -493,7 +509,27 @@ export type Database = {
       }
       conferencia_decidir: {
         Args: { _acao?: string; _dados?: Json; _decisao: string; _item: string; _justificativa?: string }
+        Returns: number
+      }
+      conferencia_confirmar_quadro: {
+        Args: { _confirmacao: string; _id: string }
+        Returns: number
+      }
+      conferencia_inativar_lote: {
+        Args: { _confirmacao: string; _id: string; _itens: string[]; _justificativa: string }
+        Returns: number
+      }
+      funcionario_alterar_cpf: {
+        Args: { _cpf: string; _id: string; _justificativa: string }
         Returns: undefined
+      }
+      funcionario_cpf: {
+        Args: { _id: string }
+        Returns: string | null
+      }
+      funcionarios_cpfs: {
+        Args: never
+        Returns: { cpf: string; id: string }[]
       }
       conferencia_descartar: {
         Args: { _id: string; _motivo: string }

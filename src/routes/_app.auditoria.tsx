@@ -41,11 +41,15 @@ const actionLabel: Record<string, string> = {
   ATUALIZAR_USUARIO: "Atualizou usuário",
   FT_RETROATIVA_EXCECAO: "Lançou FT retroativa por exceção",
   ANULAR_INATIVIDADE: "Anulou período de inatividade",
-  CONFERENCIA_CRIADA: "Iniciou conferência",
-  CONFERENCIA_DECISAO: "Revisou item da conferência",
-  CONFERENCIA_ITEM_APLICADO: "Aplicou item da conferência",
-  CONFERENCIA_APLICADA: "Aplicou conferência",
-  CONFERENCIA_DESCARTADA: "Descartou conferência",
+  CONFERENCIA_CRIADA: "Iniciou importação oficial",
+  CONFERENCIA_QUADRO_COMPLETO: "Confirmou quadro completo",
+  CONFERENCIA_EXPIRADA: "Importação expirada",
+  CPF_ALTERADO: "Corrigiu CPF",
+  CPF_INFORMADO: "Informou CPF",
+  CONFERENCIA_DECISAO: "Revisou item da importação",
+  CONFERENCIA_ITEM_APLICADO: "Aplicou item da importação",
+  CONFERENCIA_APLICADA: "Aplicou importação oficial",
+  CONFERENCIA_DESCARTADA: "Descartou importação oficial",
 };
 
 const entityLabel: Record<string, string> = {
@@ -54,8 +58,9 @@ const entityLabel: Record<string, string> = {
   profiles: "Usuários",
   user_roles: "Perfis de acesso",
   funcionario_inatividades: "Períodos de inatividade",
-  conferencias: "Conferência",
-  conferencia_itens: "Itens de conferência",
+  conferencias: "Importação oficial",
+  conferencia_itens: "Itens de importação",
+  importacao_empresas: "Primeira importação por empresa",
 };
 
 function getModule(log: Log) {
@@ -169,8 +174,8 @@ function AuditoriaPage() {
             <option value="funcionarios">Funcionário</option>
             <option value="profiles">Usuário</option>
             <option value="user_roles">Permissão</option>
-            <option value="conferencias">Conferência</option>
-            <option value="conferencia_itens">Item de conferência</option>
+            <option value="conferencias">Importação oficial</option>
+            <option value="conferencia_itens">Item de importação</option>
           </select>
         </Field>
         <Field label="De"><input type="date" value={fStart} onChange={(e) => setFStart(e.target.value)} className={inp} /></Field>

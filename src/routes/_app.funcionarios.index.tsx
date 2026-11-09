@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Plus, Pencil, UserCheck, UserX, Search } from "lucide-react";
-import { formatarData, JUSTIFICATIVA_MIN, justificativaValida, mensagemRegra, STATUS_BADGE, STATUS_LABEL, statusDe } from "@/lib/funcionario-status";
+import { formatarData, JUSTIFICATIVA_MIN, justificativaValida, mensagemRegra, STATUS_BADGE, STATUS_LABEL, statusDe, COLUNAS_FUNCIONARIO } from "@/lib/funcionario-status";
 
 
 export const Route = createFileRoute("/_app/funcionarios/")({
@@ -19,7 +19,7 @@ function FuncionariosList() {
 
   useEffect(() => { load(); }, []);
   async function load() {
-    const { data } = await supabase.from("funcionarios").select("*").order("nome");
+    const { data } = await supabase.from("funcionarios").select(COLUNAS_FUNCIONARIO).order("nome");
     setItems(data ?? []);
   }
 

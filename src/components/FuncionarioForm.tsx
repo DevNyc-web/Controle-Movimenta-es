@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { EMPRESAS } from "@/lib/empresas";
 import { formatarData, mensagemRegra, STATUS_LABEL, statusDe } from "@/lib/funcionario-status";
+import { cpfDaCelula, cpfValido } from "@/lib/importacao-funcionarios";
 
 const CARGOS = ["Vigilante", "Porteiro", "ASG", "Recepcionista", "Manutencista", "Freelancer"];
 const VALORES: Record<string, number> = {
@@ -22,22 +23,26 @@ export function FuncionarioForm({ initial, onDone }: Props) {
     usa_banco_horas: initial?.usa_banco_horas ?? false,
     status: initial?.status ?? "ativo",
   });
+  // CPF só na criação; depois, só pela correção com justificativa (detalhes do funcionário).
+  const [cpf, setCpf] = useState("");
+  const cpfInvalido = !initial && cpf.trim() !== "" && !cpfValido(cpfDaCelula(cpf));
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (cpfInvalido) return void toast.error("CPF inválido.");
     if (form.status === "inativo" && initial?.status !== "inativo"
       && !confirm(`Inativar ${form.nome}? O funcionário deixa de aparecer em novos lançamentos. As movimentações antigas são preservadas.`)) return;
     setLoading(true);
     // status_ativo, data_inativacao e inativado_por são definidos pelo banco.
-    const payload: any = { ...form, empresa: form.empresa || null };
+    const payload: any = { ...form, empresa: form.empresa || null, ...(initial ? {} : { cpf: cpf.trim() ? cpfDaCelula(cpf) : null }) };
     // Formulário aberto há tempo não pode reescrever o status: só vai se o usuário mudou.
     if (initial && form.status === initial.status) delete payload.status;
     const { error } = initial
       ? await supabase.from("funcionarios").update(payload).eq("id", initial.id)
       : await supabase.from("funcionarios").insert(payload);
     setLoading(false);
-    if (error) toast.error(mensagemRegra(error.message));
+    if (error) toast.error(/funcionarios_cpf_key/.test(error.message) ? "Este CPF já pertence a outro funcionário." : mensagemRegra(error.message));
     else { toast.success(initial ? "Funcionário atualizado" : "Funcionário cadastrado"); onDone(); }
   }
 
@@ -48,6 +53,8 @@ export function FuncionarioForm({ initial, onDone }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Field label="Nome completo" value={form.nome} onChange={set("nome")} required />
         <Field label="RE" value={form.re} onChange={set("re")} required />
+        {!initial && <Field label="CPF" value={cpf} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCpf(e.target.value)} />}
+        {cpfInvalido && <div className="md:col-span-2 text-xs text-amber-800">CPF inválido.</div>}
         <SelectField label="Empresa" value={form.empresa} onChange={set("empresa")}
           options={[{ value: "", label: "Não informada" }, ...(form.empresa && !(EMPRESAS as readonly string[]).includes(form.empresa) ? [form.empresa] : []), ...EMPRESAS]} />
         <SelectField label="Cargo" value={form.cargo} onChange={set("cargo")} options={CARGOS} />

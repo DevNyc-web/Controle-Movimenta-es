@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ExcelJS from "exceljs";
 import {
-  abasDoWorkbook, cargoReconhecido, celulaTexto, cpfDaCelula, cpfValido, detectarColunas, deteccaoConfiavel, extrairLinhas, mascararCpf, nomeNormalizado,
+  abasDoWorkbook, cargoReconhecido, empresaDoTitulo, celulaTexto, cpfDaCelula, cpfValido, detectarColunas, deteccaoConfiavel, extrairLinhas, mascararCpf, nomeNormalizado,
 } from "../src/lib/importacao-funcionarios.ts";
+import { normalizarEmpresa } from "../src/lib/empresas.ts";
 
 // CPFs sintéticos com dígitos verificadores válidos.
 const A = "11144477735", B = "52998224725", C = "39053344705";
@@ -131,12 +132,13 @@ test("layout real da Relação Cadastral (fictício): sem linhas falsas", async 
   assert.equal(r.totalImpresso, 2);
 });
 
-test("importador antigo usa o leitor compartilhado e não adivinha cargo", () => {
-  const imp = readFileSync("src/routes/_app.funcionarios.importar.tsx", "utf8");
-  assert.match(imp, /from "@\/lib\/importacao-funcionarios"/);
-  assert.doesNotMatch(imp, /return "Freelancer"/);
-  assert.doesNotMatch(imp, /function mapCargo/);
-  assert.match(imp, /cargoReconhecido/);
+test("importação oficial e Itaú usam o leitor compartilhado; o Itaú não chama nenhuma escrita", () => {
+  for (const p of ["src/routes/_app.conferencia.index.tsx", "src/routes/_app.pagamentos.tsx"]) assert.match(readFileSync(p, "utf8"), /from "@\/lib\/importacao-funcionarios"/);
+  const itau = readFileSync("src/routes/_app.pagamentos.tsx", "utf8");
+  assert.doesNotMatch(itau, /supabase|\.rpc\(|\.insert\(|\.update\(/);
+  const fn = readFileSync("src/lib/conferencia.functions.ts", "utf8");
+  const corpo = fn.slice(fn.indexOf("export const conferirPagamentos"));
+  assert.doesNotMatch(corpo, /conferencia_|\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
 });
 
 test("data de admissão impossível não vira data", () => {
@@ -144,4 +146,46 @@ test("data de admissão impossível não vira data", () => {
   const { linhas } = extrairLinhas(m, 0, { nome: 0, cpf: 1, admissao: 2 });
   assert.equal(linhas[0].admissao, null);
   assert.equal(linhas[1].admissao, "2024-02-29");
+});
+
+test("total impresso: subtotal e total geral não somam; repetido não dobra", () => {
+  const m = [["Nome", "CPF"], ["ANA", "52998224725"], ["Total de empregados: 1"], ["BIA", "11144477735"], ["Total de empregados: 1"], ["Total de empregados: 2"]];
+  assert.equal(extrairLinhas(m, 0, { nome: 0, cpf: 1 }).totalImpresso, 2);
+  const rep = [["Nome", "CPF"], ["ANA", "52998224725"], ["Total de empregados: 1"], ["Total de empregados: 1"]];
+  assert.equal(extrairLinhas(rep, 0, { nome: 0, cpf: 1 }).totalImpresso, 1);
+});
+
+test("empresa vem do título do relatório; sem nome reconhecido fica null", () => {
+  const m = [["M C SERVICOS GERAIS LTDA", "M C SERVICOS GERAIS LTDA"], ["RELAÇÃO CADATRAL"], ["Código", "Nome", "CPF"]];
+  assert.equal(empresaDoTitulo(m, 2, normalizarEmpresa), "M C SERVICOS GERAIS LTDA");
+  assert.equal(empresaDoTitulo([["FOLHA"], ["Nome", "CPF"]], 1, normalizarEmpresa), null);
+  assert.equal(empresaDoTitulo(m, 0, normalizarEmpresa), null, "nada acima do cabeçalho");
+});
+
+test("Relação Cadastral sintética: colunas por sinônimo, RG e nascimento nunca saem da leitura", () => {
+  const m = [["MC REMOTA LTDA"], ["RELAÇÃO CADATRAL"], [],
+    ["Código", "", "Nome", "Nome", "Cargo", "RG", "CPF", "Dt. Nascimento", "Admissão"],
+    ["101", "", "ANA SINTETICA", "ANA SINTETICA", "AUX SERV GERAIS", "RG-SECRETO-1", "01234567890", "01/01/1990", "02/03/2020"],
+    ["Total de empregados: 1"], ["Total de empregados: 1"]];
+  const d = detectarColunas(m);
+  assert.equal(d.linhaCabecalho, 3);
+  assert.deepEqual([d.colunas.re, d.colunas.nome, d.colunas.cargo, d.colunas.cpf], [0, 2, 4, 6]);
+  const r = extrairLinhas(m, d.linhaCabecalho, d.colunas);
+  assert.equal(r.linhas.length, 1);
+  assert.equal(r.totalImpresso, 1);
+  assert.equal(r.linhas[0].cpf, "01234567890");
+  assert.equal(cargoReconhecido(r.linhas[0].cargo), "ASG");
+  const tudo = JSON.stringify(r);
+  assert.ok(!tudo.includes("RG-SECRETO") && !tudo.includes("1990"), "RG ou nascimento vazou da leitura");
+});
+
+test("aba oculta no Excel é marcada e as telas não a usam por padrão", async () => {
+  const wb = new ExcelJS.Workbook();
+  wb.addWorksheet("Visivel").addRow(["Nome", "CPF"]);
+  wb.addWorksheet("Escondida", { state: "hidden" }).addRow(["Nome", "CPF"]);
+  wb.addWorksheet("MuitoEscondida", { state: "veryHidden" }).addRow(["Nome", "CPF"]);
+  const lido = new ExcelJS.Workbook();
+  await lido.xlsx.load(await wb.xlsx.writeBuffer());
+  assert.deepEqual(abasDoWorkbook(lido as never).map((a) => [a.nome, a.oculta]), [["Visivel", false], ["Escondida", true], ["MuitoEscondida", true]]);
+  for (const p of ["src/routes/_app.conferencia.index.tsx", "src/routes/_app.pagamentos.tsx"]) assert.match(readFileSync(p, "utf8"), /usar: !a\.oculta/);
 });

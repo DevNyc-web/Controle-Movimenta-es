@@ -10,6 +10,8 @@ export const LIMITE_BYTES = 10 * 1024 * 1024;
 export const LIMITE_LINHAS = 20000;
 
 export const CARGOS = ["Vigilante", "Porteiro", "ASG", "Recepcionista", "Manutencista", "Freelancer"] as const;
+/** Valor da FT por cargo; espelha valor_folga_por_cargo() no banco, que é quem grava o valor. Só para mostrar o impacto de mudar o cargo. */
+export const VALOR_FT: Record<(typeof CARGOS)[number], number> = { Vigilante: 200, Porteiro: 150, ASG: 130, Recepcionista: 150, Manutencista: 130, Freelancer: 150 };
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
 const rotulo = (s: string) => semAcento(s).toLowerCase().replace(/[.:_º°]/g, "").replace(/\s+/g, " ").trim();
@@ -64,7 +66,7 @@ export function mascararCpf(v: string | null | undefined) {
 export function cargoReconhecido(raw: string): (typeof CARGOS)[number] | null {
   const c = semAcento(raw || "").toUpperCase();
   if (c.includes("VIGILANTE")) return "Vigilante";
-  if (["LIMPEZA", "ZELADOR", "ASG", "SERVICOS GERAIS", "AUX. SERVICOS", "AUXILIAR DE SERVICOS"].some((k) => c.includes(k))) return "ASG";
+  if (["LIMPEZA", "ZELADOR", "ASG", "SERVICOS GERAIS", "SERV GERAIS", "AUX. SERVICOS", "AUXILIAR DE SERVICOS"].some((k) => c.includes(k))) return "ASG";
   if (["PORTARIA", "PORTEIRO", "VIGIA", "CONTROLADOR", "ACESSO", "MONITORAMENTO", "BOMBEIRO", "INSPETOR", "VISTORIA"].some((k) => c.includes(k))) return "Porteiro";
   if (c.includes("RECEPCION")) return "Recepcionista";
   if (["MANUTEN", "INSTALADOR", "TECNICO"].some((k) => c.includes(k))) return "Manutencista";
@@ -182,7 +184,7 @@ export function extrairLinhas(m: Matriz, linhaCabecalho: number, colunas: Coluna
     if (textos.length === 0) continue;
     const corrido = rotulo(textos.join(" "));
     const total = TOTAL.exec(corrido);
-    if (total) { out.totalImpresso = (out.totalImpresso ?? 0) + Number(total[1]); out.ignoradas.push({ origem: origem(i), motivo: "total da planilha" }); continue; }
+    if (total) { out.totalImpresso = Math.max(out.totalImpresso ?? 0, Number(total[1])); /* subtotais e total geral: vale o maior, nunca a soma */ out.ignoradas.push({ origem: origem(i), motivo: "total da planilha" }); continue; }
 
     const nome = celulaTexto(celula(l, "nome")).replace(/\s+/g, " ").trim();
     const cpfBruto = celula(l, "cpf");
@@ -203,10 +205,17 @@ export function extrairLinhas(m: Matriz, linhaCabecalho: number, colunas: Coluna
   return out;
 }
 
-export interface Aba { nome: string; matriz: Matriz }
+export interface Aba { nome: string; matriz: Matriz; oculta: boolean }
+
+/** Empresa do grupo no título do relatório (linhas acima do cabeçalho). null quando não há nome reconhecido: o Gestor escolhe. */
+export function empresaDoTitulo(m: Matriz, linhaCabecalho: number, normalizar: (v: string) => string | null): string | null {
+  for (const l of m.slice(0, Math.max(0, linhaCabecalho))) for (const c of l ?? []) { const e = normalizar(celulaTexto(c)); if (e) return e; }
+  return null;
+}
 
 /** Worksheets do ExcelJS em matrizes simples (valores começam no índice 1 no ExcelJS). */
-export function abasDoWorkbook(wb: { worksheets: { name: string; rowCount: number; getRow: (i: number) => { values: unknown } }[] }): Aba[] {
+/** oculta: aba escondida ou "muito escondida" no Excel. As telas não a usam por padrão; o Gestor precisa marcá-la. */
+export function abasDoWorkbook(wb: { worksheets: { name: string; state?: string; rowCount: number; getRow: (i: number) => { values: unknown } }[] }): Aba[] {
   return wb.worksheets
     .map((ws) => {
       const matriz: Matriz = [];
@@ -214,7 +223,7 @@ export function abasDoWorkbook(wb: { worksheets: { name: string; rowCount: numbe
         const v = ws.getRow(i).values;
         matriz.push(Array.isArray(v) ? Array.from(v).slice(1) : []);
       }
-      return { nome: ws.name, matriz };
+      return { nome: ws.name, matriz, oculta: !!ws.state && ws.state !== "visible" };
     })
     .filter((a) => a.matriz.some((l) => l.some((c) => celulaTexto(c))));
 }

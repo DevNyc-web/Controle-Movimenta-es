@@ -37,7 +37,7 @@ CREATE FUNCTION pg_temp.item(p_tipo text, p_f uuid, p_nome text, p_cpf text, p_a
 $$;
 CREATE FUNCTION pg_temp.atual(p_f uuid) RETURNS jsonb LANGUAGE sql AS $$ SELECT jsonb_build_object('nome', nome, 'cpf', cpf, 'status', status) FROM public.funcionarios WHERE id = p_f $$;
 CREATE FUNCTION pg_temp.cria(p_u uuid, p_itens jsonb) RETURNS text LANGUAGE sql AS $$
-  SELECT format('SELECT public.conferencia_criar(%L::jsonb, %L::jsonb, %L::jsonb)', '{"nome":"folha.xlsx","abas":["Folha"],"ignoradas":3}', '{"total_folha":5}', p_itens)
+  SELECT format('SELECT public.conferencia_criar(%L::jsonb, %L::jsonb, %L::jsonb)', '{"nome":"folha.xlsx","abas":["Folha"],"ignoradas":3,"empresa":"MC REMOTA LTDA"}', '{"total_folha":5}', p_itens)
 $$;
 
 INSERT INTO auth.users (instance_id, id, aud, role, email, raw_user_meta_data, created_at, updated_at)
@@ -94,7 +94,7 @@ BEGIN
   FOREACH x IN ARRAY ARRAY[u.s::text, u.ad::text, u.ap::text, u.gd::text] LOOP
     r := pg_temp.como(x::uuid, sql_cria);
     ASSERT r LIKE 'P0001 PERMISSAO%', 'criar: ' || x || ' ' || r;
-    r := pg_temp.como(x::uuid, $q$SELECT public.conferencia_aplicar('00000000-0000-0000-0000-000000000000', 'APLICAR 1')$q$);
+    r := pg_temp.como(x::uuid, $q$SELECT public.conferencia_aplicar('00000000-0000-0000-0000-000000000000', 'APLICAR 1', 0)$q$);
     ASSERT r LIKE 'P0001 PERMISSAO%', 'aplicar: ' || r;
     r := pg_temp.como(x::uuid, $q$SELECT public.conferencia_decidir('00000000-0000-0000-0000-000000000000', 'APROVADA')$q$);
     ASSERT r LIKE 'P0001 PERMISSAO%', 'decidir: ' || r;
@@ -237,13 +237,13 @@ DO $$
 DECLARE u record; r text; v_id uuid; res jsonb;
 BEGIN
   SELECT * INTO u FROM _u; SELECT id INTO v_id FROM _c;
-  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'sim')$q$, v_id));
+  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'sim', (SELECT revisao FROM public.conferencias WHERE id = %L))$q$, v_id, v_id));
   ASSERT r LIKE 'P0001 CONFERENCIA_CONFIRMACAO%', 'confirmação errada: ' || r;
-  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 1')$q$, v_id));
+  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 1', (SELECT revisao FROM public.conferencias WHERE id = %L))$q$, v_id, v_id));
   ASSERT r LIKE 'P0001 CONFERENCIA_CONFIRMACAO%', 'quantidade errada: ' || r;
   ASSERT (SELECT nome FROM public.funcionarios WHERE id = pg_temp.f(1)) = 'NOME ANTIGO SILVA', 'nada aplicado';
 
-  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 7')$q$, v_id));
+  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 7', (SELECT revisao FROM public.conferencias WHERE id = %L))$q$, v_id, v_id));
   ASSERT r = 'ok:1', 'aplicar: ' || r;
   SELECT resultado INTO res FROM public.conferencias WHERE id = v_id;
   ASSERT res = '{"aplicados": 4, "conflitos": 3}'::jsonb, 'resultado: ' || res::text;
@@ -273,7 +273,7 @@ BEGIN
       AND concat(l.old_data::text, l.new_data::text, l.description, l.observacao) LIKE '%' || c || '%'), 'sem CPF nos logs da conferência';
 
   -- idempotência
-  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 7')$q$, v_id));
+  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 7', (SELECT revisao FROM public.conferencias WHERE id = %L))$q$, v_id, v_id));
   ASSERT r LIKE 'P0001 CONFERENCIA_ESTADO%', 'aplicar duas vezes: ' || r;
   r := pg_temp.como(u.g, format($q$SELECT public.conferencia_decidir(%L, 'REJEITADA')$q$, (SELECT id FROM public.conferencia_itens WHERE conferencia_id = v_id AND tipo = 'AUSENTE' LIMIT 1)));
   ASSERT r LIKE 'P0001 CONFERENCIA_ESTADO%', 'decidir em conferência concluída: ' || r;
@@ -292,7 +292,10 @@ END $$;
 DO $$
 DECLARE f text;
 BEGIN
-  FOREACH f IN ARRAY ARRAY['conferencia_criar', 'conferencia_decidir', 'conferencia_aplicar', 'conferencia_descartar', 'conferencia_mascarar_itens'] LOOP
+  -- inativação só existe em conferencia_aplicar, no ramo INATIVAR (um único UPDATE)
+  ASSERT (SELECT count(*) FROM regexp_matches((SELECT prosrc FROM pg_proc WHERE proname = 'conferencia_aplicar'), $r$status\s*=\s*'inativo'$r$, 'gi')) = 1, 'aplicar: mais de um caminho de inativação';
+  ASSERT (SELECT prosrc FROM pg_proc WHERE proname = 'conferencia_aplicar') !~* $r$delete\s+from|truncate$r$, 'aplicar: caminho de exclusão';
+  FOREACH f IN ARRAY ARRAY['conferencia_criar', 'conferencia_decidir', 'conferencia_descartar', 'conferencia_mascarar_itens', 'conferencia_confirmar_quadro', 'conferencia_inativar_lote', 'funcionario_alterar_cpf'] LOOP
     ASSERT (SELECT prosrc FROM pg_proc WHERE proname = f) !~* $r$status\s*=\s*'inativo'$r$, f || ': caminho de inativação';
     ASSERT (SELECT prosrc FROM pg_proc WHERE proname = f) !~* $r$delete\s+from|truncate$r$, f || ': caminho de exclusão';
   END LOOP;
@@ -314,7 +317,7 @@ BEGIN
   UPDATE public.conferencia_itens SET folha = jsonb_set(folha, '{admissao}', '"data-invalida"') WHERE conferencia_id = v_id AND tipo = 'NOVO';
   SELECT id INTO i FROM public.conferencia_itens WHERE conferencia_id = v_id AND tipo = 'NOVO';
   r := pg_temp.como(u.g, format($q$SELECT public.conferencia_decidir(%L, 'APROVADA', 'CADASTRAR', NULL, '{"re":"902","cargo":"ASG"}')$q$, i)); ASSERT r = 'ok:1', 'novo: ' || r;
-  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 2')$q$, v_id));
+  r := pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 2', (SELECT revisao FROM public.conferencias WHERE id = %L))$q$, v_id, v_id));
   ASSERT r LIKE '22007%' OR r LIKE '22008%', 'erro inesperado: ' || r;
   ASSERT (SELECT nome FROM public.funcionarios WHERE id = pg_temp.f(5)) = 'AUSENTE DA FOLHA', 'atômico: nada aplicado';
   ASSERT (SELECT status FROM public.conferencias WHERE id = v_id) = 'ABERTA', 'segue aberta';
@@ -348,10 +351,11 @@ BEGIN
   ASSERT r LIKE 'P0001 CONFERENCIA_DADOS%', 'nome em branco: ' || r;
 
   ASSERT pg_temp.como(u.g, format($q$SELECT public.conferencia_decidir(%L, 'APROVADA', 'CORRIGIR_CPF', 'Corrigido depois de conferir o RH')$q$, i)) = 'ok:1', 'corrigir';
-  -- 71428793860 -> 01428793860: mesma máscara
-  UPDATE public.funcionarios SET cpf = '01428793860' WHERE id = pg_temp.f(5);
-  ASSERT pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 2')$q$, v_id)) = 'ok:1', 'aplicar';
-  ASSERT (SELECT cpf FROM public.funcionarios WHERE id = pg_temp.f(5)) = '01428793860', 'mudança invisível na máscara não pode ser sobrescrita';
+  -- 71428793860 -> 10028793889: mesma máscara (***.287.938-**); alteração externa legítima, com justificativa
+  PERFORM set_config('app.cpf_justificativa', 'alteracao externa simulada no teste', true);
+  UPDATE public.funcionarios SET cpf = '10028793889' WHERE id = pg_temp.f(5);
+  ASSERT pg_temp.como(u.g, format($q$SELECT public.conferencia_aplicar(%L, 'APLICAR 2', (SELECT revisao FROM public.conferencias WHERE id = %L))$q$, v_id, v_id)) = 'ok:1', 'aplicar';
+  ASSERT (SELECT cpf FROM public.funcionarios WHERE id = pg_temp.f(5)) = '10028793889', 'mudança invisível na máscara não pode ser sobrescrita';
   ASSERT (SELECT resultado FROM public.conferencia_itens WHERE id = i) = 'CONFLITO', 'conflito de CPF';
 END $$;
 

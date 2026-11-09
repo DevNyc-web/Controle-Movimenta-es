@@ -130,9 +130,7 @@ test("resumo soma cada grupo", () => {
   assert.deepEqual(resumo, { total_folha: 4, correspondencias: 1, novos: 1, ausentes: 1, divergencias: 1, inativos: 0, duplicidades: 0, pendencias: 1 });
 });
 
-test("nenhuma classificação oferece inativar", () => {
-  const src = readFileSync("src/lib/conferencia.ts", "utf8");
-  assert.doesNotMatch(src, /"INATIVAR"/);
+test("comparação de folha (base do Itaú) nunca oferece inativar", () => {
   const { itens } = compararFolha([linha("X Y", A)], [func("1", "ANA", B), func("2", "BIA", C, { status: "inativo" })]);
   for (const i of itens) assert.ok(!(i.opcoes as string[]).includes("INATIVAR"));
 });

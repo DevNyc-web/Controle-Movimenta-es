@@ -1,6 +1,10 @@
 // Estados do funcionário e regras de tela da FT retroativa. Lógica pura, testável.
 // O banco é quem decide (tg_ft_validar_funcionarios); isto só antecipa a mensagem para o usuário.
 
+/** Colunas legíveis de funcionarios. CPF fica de fora: nenhum perfil lê a coluna; o Gestor usa funcionario_cpf(). */
+export const COLUNAS_FUNCIONARIO =
+  "id, nome, re, cargo, setor, empresa, turno, status, status_ativo, supervisor, usa_banco_horas, banco_horas, data_admissao, data_inativacao, inativado_por, created_at, updated_at";
+
 export type StatusFuncionario = "ativo" | "ferias" | "inativo";
 
 export const STATUS_LABEL: Record<StatusFuncionario, string> = { ativo: "Ativo", ferias: "Férias", inativo: "Inativo" };
@@ -49,4 +53,4 @@ export function avaliarRetroativa<T extends VinculoFt>(vinculos: (T | undefined)
 }
 
 /** Tira o código técnico do início das mensagens de regra do banco (ex.: "FUNCIONARIO_INATIVO: ..."). */
-export const mensagemRegra = (msg: string) => msg.replace(/^(FUNCIONARIO_INATIVO|RETROATIVA_[A-Z]+|REATIVACAO_MOTIVO|CADASTRO_INATIVO|EXCLUSAO_PROIBIDA|PERMISSAO(?:_FERIAS)?|ANULACAO_[A-Z]+|FT_[A-Z_]+|CONFERENCIA_[A-Z]+): /, "");
+export const mensagemRegra = (msg: string) => msg.replace(/^(FUNCIONARIO_INATIVO|RETROATIVA_[A-Z]+|REATIVACAO_MOTIVO|CADASTRO_INATIVO|EXCLUSAO_PROIBIDA|PERMISSAO(?:_FERIAS)?|ANULACAO_[A-Z]+|FT_[A-Z_]+|CONFERENCIA_[A-Z]+|CPF_[A-Z]+): /, "");

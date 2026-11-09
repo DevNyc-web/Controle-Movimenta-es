@@ -5,64 +5,65 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { AlertTriangle, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { MapaAba } from "@/components/MapaAba";
+import { leituraDa, mapeada, type Aba, type CampoMapa } from "@/lib/mapa-aba";
 import { useAuth } from "@/lib/auth";
 import type { ConferenciaTela } from "@/lib/conferencia";
 import { criarConferencia } from "@/lib/conferencia.functions";
+import { EMPRESAS, normalizarEmpresa } from "@/lib/empresas";
 import { mensagemRegra } from "@/lib/funcionario-status";
-import {
-  abasDoWorkbook, celulaTexto, deteccaoConfiavel, detectarColunas, extrairLinhas, LIMITE_BYTES, LIMITE_LINHAS,
-  type Campo, type Colunas, type Matriz,
-} from "@/lib/importacao-funcionarios";
+import { abasDoWorkbook, deteccaoConfiavel, detectarColunas, empresaDoTitulo, LIMITE_BYTES, LIMITE_LINHAS } from "@/lib/importacao-funcionarios";
 
-export const Route = createFileRoute("/_app/conferencia/")({ component: ConferenciaPage });
+export const Route = createFileRoute("/_app/conferencia/")({ component: ImportacaoOficialPage });
 
-/** nome: "arquivo / aba" com vários arquivos, para achar a linha certa quando as abas têm o mesmo nome. */
-type Aba = { id: string; nome: string; matriz: Matriz; linha: number; colunas: Colunas; duvida: boolean; usar: boolean };
-type Conf = Pick<ConferenciaTela, "id" | "status" | "arquivo_nome" | "criada_em" | "resumo" | "resultado">;
+type Conf = Pick<ConferenciaTela, "id" | "status" | "arquivo_nome" | "criada_em" | "resumo" | "resultado" | "empresa" | "primeira_da_empresa">;
+type Empresa = (typeof EMPRESAS)[number];
 
-const CAMPOS: { campo: Campo; label: string; obrigatorio?: boolean }[] = [
+// Só estas colunas são lidas; RG, nascimento e qualquer outra coluna nunca saem do navegador.
+const CAMPOS: CampoMapa[] = [
   { campo: "cpf", label: "CPF", obrigatorio: true },
   { campo: "nome", label: "Nome completo", obrigatorio: true },
-  { campo: "re", label: "RE / matrícula" },
+  { campo: "re", label: "Código / RE" },
   { campo: "cargo", label: "Cargo" },
-  { campo: "empresa", label: "Empresa" },
   { campo: "admissao", label: "Admissão" },
 ];
 const STATUS: Record<string, string> = { ABERTA: "Em revisão", CONCLUIDA: "Concluída", DESCARTADA: "Descartada" };
 const inp = "w-full px-3 py-2 bg-sand rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-oak-dark/20";
 
-const leitura = (a: Aba) => extrairLinhas(a.matriz, a.linha, a.colunas, a.nome);
-const mapeada = (a: Aba) => a.linha >= 0 && a.colunas.cpf !== undefined && a.colunas.nome !== undefined && a.colunas.cpf !== a.colunas.nome;
-
-function ConferenciaPage() {
+function ImportacaoOficialPage() {
   const { isGestor } = useAuth();
   const navigate = useNavigate();
   const [lista, setLista] = useState<Conf[]>([]);
+  const [validadas, setValidadas] = useState<Set<string>>(new Set());
   const [abas, setAbas] = useState<Aba[]>([]);
   const [arquivos, setArquivos] = useState("");
+  const [empresa, setEmpresa] = useState<Empresa | "">("");
+  const [empresaDetectada, setEmpresaDetectada] = useState(false);
   const [lendo, setLendo] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     if (!isGestor) return;
-    supabase.from("conferencias").select("id, status, arquivo_nome, criada_em, resumo, resultado").order("criada_em", { ascending: false }).limit(100)
+    supabase.from("conferencias").select("id, status, arquivo_nome, criada_em, resumo, resultado, empresa, primeira_da_empresa").order("criada_em", { ascending: false }).limit(100)
       .then(({ data, error }) => {
         if (error) toast.error("Não foi possível carregar o histórico.");
         setLista((data ?? []) as unknown as Conf[]);
       });
+    supabase.from("importacao_empresas").select("empresa").then(({ data }) => setValidadas(new Set((data ?? []).map((r) => r.empresa))));
   }, [isGestor]);
 
   if (!isGestor) return <div className="text-sm text-muted-foreground">Acesso restrito ao Gestor.</div>;
 
   const aberta = lista.find((c) => c.status === "ABERTA");
   const usadas = abas.filter((a) => a.usar);
-  const leituras = usadas.filter(mapeada).map(leitura);
+  const leituras = usadas.filter(mapeada).map(leituraDa);
   const linhas = leituras.flatMap((l) => l.linhas);
   const ignoradas = leituras.flatMap((l) => l.ignoradas);
   const comTotal = leituras.filter((l) => l.totalImpresso !== null); // aba sem total impresso não entra na comparação
   const impresso = comTotal.length ? comTotal.reduce((s, l) => s + (l.totalImpresso as number), 0) : null;
   const lidasComTotal = comTotal.reduce((s, l) => s + l.linhas.length, 0);
-  const pronto = usadas.length > 0 && usadas.every(mapeada) && linhas.length > 0 && linhas.length <= LIMITE_LINHAS;
+  const pronto = !!empresa && usadas.length > 0 && usadas.every(mapeada) && linhas.length > 0 && linhas.length <= LIMITE_LINHAS;
+  const primeira = !!empresa && !validadas.has(empresa);
 
   async function selecionar(e: React.ChangeEvent<HTMLInputElement>) {
     const files = [...(e.target.files ?? [])];
@@ -73,14 +74,20 @@ function ConferenciaPage() {
     setAbas([]);
     try {
       const novas: Aba[] = [];
+      const empresas = new Set<string | null>();
       for (const f of files) {
         const wb = new ExcelJS.Workbook();
         await wb.xlsx.load(await f.arrayBuffer());
         for (const a of abasDoWorkbook(wb)) {
           const d = detectarColunas(a.matriz);
-          novas.push({ id: `${novas.length}`, nome: files.length > 1 ? `${f.name} / ${a.nome}` : a.nome, matriz: a.matriz, linha: d.linhaCabecalho, colunas: d.colunas, duvida: !deteccaoConfiavel(d), usar: true });
+          if (!a.oculta) empresas.add(empresaDoTitulo(a.matriz, d.linhaCabecalho, normalizarEmpresa));
+          novas.push({ id: `${novas.length}`, nome: files.length > 1 ? `${f.name} / ${a.nome}` : a.nome, matriz: a.matriz, linha: d.linhaCabecalho, colunas: d.colunas, duvida: !deteccaoConfiavel(d), usar: !a.oculta, oculta: a.oculta });
         }
       }
+      // Empresa só é assumida quando todas as abas trazem a mesma no título; senão o Gestor escolhe.
+      const unica = empresas.size === 1 ? [...empresas][0] : null;
+      setEmpresa((unica ?? "") as Empresa | "");
+      setEmpresaDetectada(!!unica);
       setArquivos(files.map((f) => f.name).join(", "));
       setAbas(novas);
       if (!novas.length) toast.error("Nenhuma aba com conteúdo foi encontrada.");
@@ -94,18 +101,19 @@ function ConferenciaPage() {
   const alterar = (id: string, m: Partial<Aba>) => setAbas((l) => l.map((a) => (a.id === id ? { ...a, ...m } : a)));
 
   async function comparar() {
+    if (!empresa) return;
     setEnviando(true);
     try {
       const mapeamento = Object.fromEntries(usadas.map((a) => [a.nome, { linha: a.linha + 1, colunas: a.colunas }]));
       const { id } = await criarConferencia({
         data: {
-          arquivo: { nome: arquivos.slice(0, 255), abas: usadas.map((a) => a.nome), mapeamento, ignoradas: ignoradas.length, total_impresso: impresso },
-          linhas: linhas.map(({ cpfValido: _, ...l }) => l),
+          arquivo: { nome: arquivos.slice(0, 255), empresa, abas: usadas.map((a) => a.nome), mapeamento, ignoradas: ignoradas.length, total_impresso: impresso },
+          linhas: linhas.map(({ cpfValido: _, ...l }) => ({ ...l, empresa: "" })),
         },
       });
       navigate({ to: "/conferencia/$id", params: { id } });
     } catch (err) {
-      toast.error(mensagemRegra((err as Error).message ?? "Não foi possível criar a conferência."));
+      toast.error(mensagemRegra((err as Error).message ?? "Não foi possível criar a importação."));
       setEnviando(false);
     }
   }
@@ -113,15 +121,15 @@ function ConferenciaPage() {
   return (
     <div className="space-y-8 max-w-5xl">
       <div>
-        <h1 className="text-3xl font-light tracking-tight">Conferência de funcionários</h1>
+        <h1 className="text-3xl font-light tracking-tight">Importação oficial de funcionários</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Compare a folha de pagamento com o cadastro. Nada muda até você aprovar item a item e confirmar a aplicação.
+          Envie a Relação Cadastral de uma empresa. O sistema propõe inclusões e atualizações; nada muda até você aprovar item a item e confirmar a aplicação.
         </p>
       </div>
 
       {aberta ? (
         <div className="bg-card border border-oak-light rounded-3xl p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm">Há uma conferência em revisão: <strong>{aberta.arquivo_nome}</strong>. Conclua ou descarte antes de iniciar outra.</p>
+          <p className="text-sm">Há uma importação em revisão: <strong>{aberta.arquivo_nome}</strong>. Conclua ou descarte antes de iniciar outra.</p>
           <Link to="/conferencia/$id" params={{ id: aberta.id }} className="px-4 py-2 bg-oak-dark text-primary-foreground text-sm font-medium rounded-xl text-center">Continuar revisão</Link>
         </div>
       ) : (
@@ -129,13 +137,27 @@ function ConferenciaPage() {
           <label className="block">
             <div className="border-2 border-dashed border-oak-medium rounded-2xl p-8 text-center cursor-pointer hover:bg-sand/30 transition">
               <Upload className="size-8 mx-auto text-oak-dark/60" />
-              <div className="mt-3 text-sm font-medium">{lendo ? "Lendo..." : "Selecionar folha de pagamento (XLSX)"}</div>
-              <div className="text-xs text-oak-dark/50 mt-1">{arquivos || "Um ou mais arquivos, com CPF e nome completo"}</div>
+              <div className="mt-3 text-sm font-medium">{lendo ? "Lendo..." : "Selecionar planilha oficial (XLSX)"}</div>
+              <div className="text-xs text-oak-dark/50 mt-1">{arquivos || "Relação Cadastral de uma empresa, com Código/RE, nome, cargo e CPF"}</div>
             </div>
-            <input type="file" accept=".xlsx" multiple onChange={selecionar} className="hidden" aria-label="Folha de pagamento" />
+            <input type="file" accept=".xlsx" multiple onChange={selecionar} className="hidden" aria-label="Planilha oficial" />
           </label>
 
-          {abas.map((a) => <MapaAba key={a.id} aba={a} alterar={(m) => alterar(a.id, m)} />)}
+          {abas.length > 0 && (
+            <div className="space-y-2">
+              <label className="block text-xs">Empresa da planilha *
+                <select value={empresa} onChange={(e) => { setEmpresa(e.target.value as Empresa | ""); setEmpresaDetectada(false); }} className={`${inp} mt-1`} aria-label="Empresa da planilha">
+                  <option value="">Selecione</option>
+                  {EMPRESAS.map((x) => <option key={x}>{x}</option>)}
+                </select>
+              </label>
+              {!empresa && <p className="text-xs text-amber-800">Não foi possível identificar a empresa pelo título. Escolha a empresa desta planilha.</p>}
+              {empresa && empresaDetectada && <p className="text-xs text-oak-dark/60">Empresa identificada pelo título do relatório.</p>}
+              {primeira && <p className="text-sm bg-sand/50 rounded-xl p-3">Primeira importação desta empresa: inclusões e atualizações podem ser aprovadas; ausentes serão apenas sinalizados.</p>}
+            </div>
+          )}
+
+          {abas.map((a) => <MapaAba key={a.id} aba={a} campos={CAMPOS} alterar={(m) => alterar(a.id, m)} />)}
 
           {usadas.length > 0 && (
             <div className="border-t border-oak-light pt-6 space-y-3">
@@ -160,14 +182,16 @@ function ConferenciaPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Histórico</h2>
-        {lista.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma conferência realizada.</p> : (
+        {lista.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma importação realizada.</p> : (
           <ul className="bg-card border border-oak-light rounded-3xl divide-y divide-oak-light">
             {lista.map((c) => (
               <li key={c.id}>
                 <Link to="/conferencia/$id" params={{ id: c.id }} className="flex flex-col gap-1 p-4 sm:flex-row sm:items-center sm:justify-between hover:bg-sand/30">
                   <span className="min-w-0">
-                    <span className="block text-sm font-medium truncate">{c.arquivo_nome}</span>
-                    <span className="block text-xs text-oak-dark/60">{format(new Date(c.criada_em), "dd/MM/yyyy HH:mm")} · {c.resumo?.total_folha ?? 0} na folha</span>
+                    <span className="block text-sm font-medium truncate">{c.empresa ?? c.arquivo_nome}</span>
+                    <span className="block text-xs text-oak-dark/60 truncate">
+                      {format(new Date(c.criada_em), "dd/MM/yyyy HH:mm")} · {c.arquivo_nome} · {c.resumo?.total_folha ?? 0} na planilha{c.primeira_da_empresa ? " · primeira importação" : ""}
+                    </span>
                   </span>
                   <span className="text-xs text-oak-dark/70 shrink-0">
                     {STATUS[c.status] ?? c.status}{c.resultado ? `: ${c.resultado.aplicados} aplicada(s), ${c.resultado.conflitos} conflito(s)` : ""}
@@ -179,47 +203,5 @@ function ConferenciaPage() {
         )}
       </section>
     </div>
-  );
-}
-
-/** Mapeamento de uma aba. Fechado quando a detecção é confiável, mas sempre pode ser aberto e corrigido. */
-function MapaAba({ aba, alterar }: { aba: Aba; alterar: (m: Partial<Aba>) => void }) {
-  const problema = aba.usar && !mapeada(aba);
-  const rotulos = (aba.linha >= 0 ? aba.matriz[aba.linha] ?? [] : []).map((c) => celulaTexto(c));
-  const opcoes = rotulos.map((r, i) => ({ i, r })).filter((o) => o.r);
-  const definir = (campo: Campo, v: string) => {
-    const colunas = { ...aba.colunas };
-    if (v === "") delete colunas[campo];
-    else colunas[campo] = Number(v);
-    alterar({ colunas });
-  };
-  return (
-    <details open={aba.duvida} className="border border-oak-light rounded-2xl p-4">
-      <summary className="cursor-pointer text-sm font-medium">
-        {aba.nome} {problema ? <span className="text-amber-700 text-xs">· informe as colunas de CPF e nome</span> : <span className="text-oak-dark/60 text-xs">· {aba.usar ? `${leitura(aba).linhas.length} linha(s)` : "ignorada"}</span>}
-      </summary>
-      <div className="mt-4 space-y-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={aba.usar} onChange={(e) => alterar({ usar: e.target.checked })} /> Usar esta aba
-        </label>
-        {aba.usar && (
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-            <label className="text-xs">
-              Linha do cabeçalho
-              <input type="number" min={1} value={aba.linha >= 0 ? aba.linha + 1 : ""} onChange={(e) => alterar({ linha: Number(e.target.value) - 1, colunas: {} })} className={`${inp} mt-1`} />
-            </label>
-            {CAMPOS.map(({ campo, label, obrigatorio }) => (
-              <label key={campo} className="text-xs">
-                {label}{obrigatorio ? " *" : ""}
-                <select value={aba.colunas[campo] ?? ""} onChange={(e) => definir(campo, e.target.value)} className={`${inp} mt-1`} aria-label={`Coluna de ${label}`}>
-                  <option value="">{obrigatorio ? "Selecione" : "Não usar"}</option>
-                  {opcoes.map((o) => <option key={o.i} value={o.i}>{o.r}</option>)}
-                </select>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-    </details>
   );
 }

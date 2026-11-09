@@ -76,7 +76,7 @@ function FtDetalhe() {
     };
   }, [id, recarga, buscarSolicitacao]);
   async function load() {
-    const { data } = await supabase.from("ft").select("*, funcionario:funcionarios!ft_funcionario_id_fkey(*), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re, empresa)").eq("id", id).maybeSingle();
+    const { data } = await supabase.from("ft").select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, cargo, empresa, setor), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re, empresa)").eq("id", id).maybeSingle();
     setFt(data);
     if (data) {
       setValorTxt(formatarCentavos(centavosDe(data.valor_pago)));

@@ -1,7 +1,7 @@
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth, type Role } from "@/lib/auth";
-import { LayoutDashboard, Users, ClipboardList, CheckCircle2, FileBarChart, History, LogOut, Menu, ShieldCheck, ScrollText, ListChecks } from "lucide-react";
+import { LayoutDashboard, Users, ClipboardList, CheckCircle2, FileBarChart, History, LogOut, Menu, ShieldCheck, ScrollText, ListChecks, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logoGrupoMc from "@/assets/logo-grupo-mc.png";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -15,7 +15,8 @@ const nav: NavItem[] = [
   { to: "/aprovacoes", label: "Aprovações", icon: CheckCircle2, roles: ["gestor"] },
   { to: "/relatorios", label: "Relatórios", icon: FileBarChart, roles: ["gestor", "apontamento"] },
   { to: "/historico", label: "Histórico", icon: History, roles: ["gestor", "apontamento"] },
-  { to: "/conferencia", label: "Conferência", icon: ListChecks, roles: ["gestor"] },
+  { to: "/conferencia", label: "Importação oficial", icon: ListChecks, roles: ["gestor"] },
+  { to: "/pagamentos", label: "Conferência Itaú", icon: Landmark, roles: ["gestor"] },
   { to: "/usuarios", label: "Usuários", icon: ShieldCheck, roles: ["gestor"] },
   { to: "/auditoria", label: "Auditoria", icon: ScrollText, roles: ["gestor"] },
 ];
