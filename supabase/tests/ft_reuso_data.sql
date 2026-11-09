@@ -1,4 +1,4 @@
--- TESTE DE STAGING/LOCAL — NÃO RODAR EM PRODUÇÃO. Requer as migrations 20261009120000 e 20261009120100 aplicadas no banco de teste.
+-- TESTE DE STAGING/LOCAL — NÃO RODAR EM PRODUÇÃO. Requer as migrations 20261009175753 e 20261009180308 aplicadas no banco de teste.
 -- Execução: SQL Editor de STAGING (role postgres) ou psql/PGlite com as migrations em ordem. Tudo em transação com ROLLBACK final.
 -- Cobre: CANCELADA/NEGADA liberam a data (inclusive turno noturno 22h às 06h); FTs vivas (PENDENTE, APROVADA,
 -- CANCELAMENTO_SOLICITADO) continuam bloqueando; reativar NEGADA sobre data ocupada dá 23505; CANCELADA continua imutável.
@@ -82,7 +82,7 @@ DO $$ BEGIN
   ASSERT (SELECT status FROM public.ft WHERE id = 'f4000000-0000-0000-0000-000000000002') = 'PENDENTE', 'NEGADA→PENDENTE com data livre';
 END $$;
 
--- 7) Postos P252–P258 aceitos; posto inexistente continua recusado (requer também a migration 20261009120100)
+-- 7) Postos P252–P258 aceitos; posto inexistente continua recusado (requer também a migration 20261009180308)
 DO $$ DECLARE p text; i int := 0; st text;
 BEGIN
   FOREACH p IN ARRAY ARRAY['P252 L2 EMPREENDIMENTOS E PARTICIPACOES LTDA AREA 1 OBRA SR MURILO','P253 TREND LOFT NOVA MOGILAR','P254 OK BRAZIL TRANSPORTE E LOGISTICA LTDA',

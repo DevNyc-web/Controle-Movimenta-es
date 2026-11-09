@@ -23,7 +23,7 @@ test("postos P252–P258 exatos, sem duplicidade, e idênticos ao CHECK da migra
     "P255 NGN SPLENDOR", "P256 SP&G ENGENHARIA LTDA (DENTRO DA COCA COLA)", "P257 CONDOMINIO SPAZIO SUBLIME", "P258 COND. VILA CERES"];
   for (const n of novos) assert.ok(POSTOS_FALTA.includes(n), n);
   assert.equal(new Set(POSTOS_FALTA).size, POSTOS_FALTA.length);
-  const sql = readFileSync(new URL("../supabase/migrations/20261009120100_add_postos_p252_p258.sql", import.meta.url), "utf8");
+  const sql = readFileSync(new URL("../supabase/migrations/20261009180308_add_postos_p252_p258.sql", import.meta.url), "utf8");
   const doBanco = [...sql.matchAll(/^\s+'(.+?)',?$/gm)].map((m) => m[1]);
   assert.deepEqual(doBanco, [...POSTOS_FALTA]);
 });
