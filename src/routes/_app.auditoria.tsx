@@ -99,11 +99,8 @@ function AuditoriaPage() {
 
   async function load() {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("audit_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(2000);
+    // Sem leitura direta de audit_logs: a função do Gestor devolve os registros com CPF mascarado (os gravados não mudam).
+    const { data, error } = await supabase.rpc("auditoria_listar", { _limite: 2000 });
     if (error) console.error(error);
     setLogs((data ?? []) as Log[]);
     setLoading(false);

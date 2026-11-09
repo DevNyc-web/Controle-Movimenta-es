@@ -527,6 +527,13 @@ export type Database = {
         Args: { _id: string }
         Returns: string | null
       }
+      auditoria_listar: {
+        Args: { _limite?: number }
+        Returns: {
+          action: string; created_at: string; description: string | null; entity_id: string | null; entity_type: string; id: string
+          new_data: Json | null; observacao: string | null; old_data: Json | null; role: string | null; user_id: string | null; username: string | null
+        }[]
+      }
       funcionarios_cpfs: {
         Args: never
         Returns: { cpf: string; id: string }[]

@@ -45,7 +45,7 @@ fi
 for t in supabase/tests/*.sql; do
   case "$t" in */local_bootstrap.sql | */local_fixtures.sql) continue ;; esac
   if [ "$ATE" != 99999999999999 ]; then
-    case "$t" in */funcionarios_inativos* | */seguranca_regressao* | */conferencia* | */importacao_oficial*) continue ;; esac
+    case "$t" in */funcionarios_inativos* | */seguranca_regressao* | */conferencia* | */importacao_oficial* | */auditoria_cpf*) continue ;; esac
   fi
   if sql -f "$t" >/dev/null; then echo "OK    $t"; else echo "FALHA $t"; falhas=$((falhas + 1)); fi
 done

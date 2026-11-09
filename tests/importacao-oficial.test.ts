@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { compararOficial, compararPagamentos, exigeJustificativa, type FuncionarioBase } from "../src/lib/conferencia.ts";
 import { cpfValido, type LinhaFolha } from "../src/lib/importacao-funcionarios.ts";
 
@@ -123,4 +124,10 @@ test("trocar cargo de ou para Freelancer exige justificativa; outras trocas de c
   assert.equal(exigeJustificativa("ATUALIZAR_CARGO", "DIVERGENCIA_CARGO", ["Porteiro", "Freelancer"]), true);
   assert.equal(exigeJustificativa("ATUALIZAR_CARGO", "DIVERGENCIA_CARGO", ["Porteiro", "Vigilante"]), false);
   assert.equal(exigeJustificativa("INATIVAR", "AUSENTE"), true);
+});
+
+test("Auditoria lê pela função com CPF mascarado, nunca direto da tabela", () => {
+  const s = readFileSync("src/routes/_app.auditoria.tsx", "utf8");
+  assert.match(s, /rpc\("auditoria_listar"/);
+  assert.doesNotMatch(s, /from\("audit_logs"\)/);
 });
