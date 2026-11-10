@@ -51,6 +51,10 @@ INSERT INTO public.audit_logs (id, user_id, username, role, action, entity_type,
 INSERT INTO public.audit_logs (id, username, action, entity_type, entity_id, description, old_data, new_data, observacao) VALUES
  ('ad000000-0000-0000-0000-000000000005', '61300101334', 'UPDATE', 'funcionarios', '61300202602', 'com espacos 613 003 039 80 e barras 613/004/052/01',
   '{"documento": 61300506580, "valor": 12345678901234}', '{"a":{"b":[{"cpf_novo":"61300607858"}]}}', 'cnpj 12.345.678/0001-95 data 09/11/2026 hora 22:18:27 valor 123.456.789,01');
+-- UUID e hash com 11 dígitos seguidos (corrompidos pela regra de 20261111; 20261112 corrige)
+INSERT INTO public.audit_logs (id, action, entity_type, entity_id, description, new_data) VALUES
+ ('ad000000-0000-0000-0000-000000000006', 'UPDATE', 'funcionarios', 'ad000000-0000-4000-8000-12345678901a',
+  'Atualizou registro em funcionarios (id ad000000-0000-4000-8000-12345678901a)', '{"id":"ad000000-0000-4000-8000-a12345678901","hash":"0123456789012f","cpf_colado":"CPF61300101334"}');
 -- concessão por coluna criada "por engano": a migration já rodou; o teste confere que a guarda a detectaria
 CREATE TEMP TABLE _antes ON COMMIT DROP AS SELECT md5(string_agg(to_jsonb(a)::text, '|' ORDER BY id)) m, count(*) n FROM public.audit_logs a;
 GRANT SELECT ON _antes TO PUBLIC;
@@ -78,7 +82,7 @@ BEGIN
 
   -- 3. máscara: nada de CPF completo; o resto intacto
   SELECT string_agg(x::text, '|') INTO tudo FROM pg_temp.lista('ce000000-0000-0000-0000-000000000001') x;
-  ASSERT tudo !~ '(?<![0-9])[0-9]{3}\.?[0-9]{3}\.?[0-9]{3}-?[0-9]{2}(?![0-9])', 'CPF completo na leitura do Gestor';
+  ASSERT tudo !~ '(?<![0-9A-Za-z])[0-9]{3}[ ./-]?[0-9]{3}[ ./-]?[0-9]{3}[ ./-]?[0-9]{2}(?![0-9A-Za-z])', 'CPF completo na leitura do Gestor';
   SELECT x INTO j FROM pg_temp.lista('ce000000-0000-0000-0000-000000000001') x WHERE x->>'id' = 'ad000000-0000-0000-0000-000000000001';
   ASSERT j->'old_data'->>'cpf' = '***.001.013-**' AND j->'new_data'->>'cpf' = '***.001.013-**', 'chave cpf: ' || j::text;
   ASSERT j->'new_data'->'extra'->>'cpf' = '***.002.026-**', 'cpf aninhado';
@@ -101,6 +105,11 @@ BEGIN
   ASSERT j->'old_data'->>'documento' = '***.005.065-**' AND (j->'old_data'->>'valor')::bigint = 12345678901234, 'número de 11 dígitos em outra chave: ' || j::text;
   ASSERT j->'new_data'->'a'->'b'->0->>'cpf_novo' = '***.006.078-**', 'chave diferente de cpf';
   ASSERT j->>'observacao' = 'cnpj 12.345.678/0001-95 data 09/11/2026 hora 22:18:27 valor 123.456.789,01', 'falso positivo: ' || (j->>'observacao');
+
+  SELECT x INTO j FROM pg_temp.lista('ce000000-0000-0000-0000-000000000001') x WHERE x->>'id' = 'ad000000-0000-0000-0000-000000000006';
+  ASSERT j->>'entity_id' = 'ad000000-0000-4000-8000-12345678901a' AND j->>'description' = 'Atualizou registro em funcionarios (id ad000000-0000-4000-8000-12345678901a)', 'UUID corrompido: ' || j::text;
+  ASSERT j->'new_data'->>'id' = 'ad000000-0000-4000-8000-a12345678901' AND j->'new_data'->>'hash' = '0123456789012f', 'UUID/hash no JSON corrompido: ' || j::text;
+  ASSERT j->'new_data'->>'cpf_colado' = 'CPF ***.001.013-**', 'CPF logo após a palavra CPF: ' || (j->'new_data'->>'cpf_colado');
 
   -- 4. registros intactos: a leitura não altera nada; o CPF completo segue gravado
   ASSERT (SELECT md5(string_agg(to_jsonb(a)::text, '|' ORDER BY id)) FROM public.audit_logs a) = (SELECT m FROM _antes), 'audit_logs alterado pela leitura';

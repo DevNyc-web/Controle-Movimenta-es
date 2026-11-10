@@ -1,4 +1,5 @@
 # Incluído por rodar_local.sh. Executa os arquivos reais de rollback em cópias do banco já migrado (criadas antes das suítes).
+RB6=supabase/rollback/20261112120000_rollback.sql
 RB5=supabase/rollback/20261111120000_rollback.sql
 RB4=supabase/rollback/20261110120000_rollback.sql
 RB3=supabase/rollback/20261106120000_rollback.sql
@@ -9,6 +10,7 @@ val_db() { "$PGBIN/psql" -X -At -d "$1" -c "$2"; }
 # 1) Com informação a preservar: aborta sem nenhum efeito, mesmo fora de transação do cliente
 sql -d rollback_guarda -c "INSERT INTO public.funcionarios (id, nome, re, cargo, turno) VALUES ('d9000000-0000-0000-0000-000000000001', 'RB', 'RB-1', 'ASG', 'Integral')"
 sql -d rollback_guarda -c "UPDATE public.funcionarios SET status = 'inativo' WHERE re = 'RB-1'"
+sql -d rollback_guarda -f "$RB6"
 sql -d rollback_guarda -f "$RB5"
 sql -d rollback_guarda -f "$RB4"
 sql -d rollback_guarda -f "$RB3"
@@ -22,7 +24,7 @@ else
 fi
 
 # 2) Sem nada a preservar: reverte, e as suítes anteriores passam no esquema revertido
-if sql -d rollback_ok -f "$RB5" && sql -d rollback_ok -f "$RB4" && sql -d rollback_ok -f "$RB3" && sql -d rollback_ok -f "$RB2" && sql -d rollback_ok -f "$RB1"; then
+if sql -d rollback_ok -f "$RB6" && sql -d rollback_ok -f "$RB5" && sql -d rollback_ok -f "$RB4" && sql -d rollback_ok -f "$RB3" && sql -d rollback_ok -f "$RB2" && sql -d rollback_ok -f "$RB1"; then
   ESTADO=$(val_db rollback_ok "select (select count(*) from information_schema.columns where column_name in ('data_inativacao', 'retroativa_justificativa'))::text || '/' || (select count(*) from pg_class where relname = 'funcionario_inatividades')::text || '/' || (select count(*) from pg_proc where proname = 'conta_ativa')::text")
   # handle_new_user endurecido não volta; delete/cascade perigosos também não
   CASC=$(val_db rollback_ok "select count(*) from pg_constraint where conrelid = 'public.ft'::regclass and contype = 'f' and confrelid = 'public.funcionarios'::regclass and confdeltype <> 'r'")
