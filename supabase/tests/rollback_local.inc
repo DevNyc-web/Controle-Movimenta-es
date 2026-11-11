@@ -7,6 +7,16 @@ RB2=supabase/rollback/20261105120100_rollback.sql
 RB1=supabase/rollback/20261105120000_rollback.sql
 val_db() { "$PGBIN/psql" -X -At -d "$1" -c "$2"; }
 
+# 0) 20261113120000 depois de 20261105120100: o rollback dela recusa e não muda nada (o estado é o de 20261105120100)
+RB7=supabase/rollback/20261113120000_rollback.sql
+P7="select count(*)::text || '/' || has_table_privilege('authenticated', 'public.audit_logs', 'INSERT')::text || '/' || has_table_privilege('authenticated', 'public.ft_historico', 'INSERT')::text from pg_policies where policyname in ('Auth insert audit', 'Auth insert historico')"
+SAIDA=$("$PGBIN/psql" -q -X -d rollback_guarda -f "$RB7" 2>&1 || true)
+if echo "$SAIDA" | grep -q '20261105120100 já aplicada' && [ "$(val_db rollback_guarda "$P7")" = "0/false/false" ]; then
+  echo "OK    rollback 20261113120000 recusado depois de 20261105120100; nada mudou"
+else
+  echo "FALHA rollback 20261113120000: [$(val_db rollback_guarda "$P7")] [$SAIDA]"; falhas=$((falhas + 1))
+fi
+
 # 1) Com informação a preservar: aborta sem nenhum efeito, mesmo fora de transação do cliente
 sql -d rollback_guarda -c "INSERT INTO public.funcionarios (id, nome, re, cargo, turno) VALUES ('d9000000-0000-0000-0000-000000000001', 'RB', 'RB-1', 'ASG', 'Integral')"
 sql -d rollback_guarda -c "UPDATE public.funcionarios SET status = 'inativo' WHERE re = 'RB-1'"
