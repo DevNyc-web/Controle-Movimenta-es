@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { ESCALAS, ESCALAS_HORAS } from "../src/lib/escalas.ts";
 import { MOTIVOS } from "../src/lib/motivos.ts";
 import { POSTOS_FALTA } from "../src/lib/postos.ts";
@@ -23,7 +23,19 @@ test("postos P252–P258 exatos, sem duplicidade, e idênticos ao CHECK da migra
     "P255 NGN SPLENDOR", "P256 SP&G ENGENHARIA LTDA (DENTRO DA COCA COLA)", "P257 CONDOMINIO SPAZIO SUBLIME", "P258 COND. VILA CERES"];
   for (const n of novos) assert.ok(POSTOS_FALTA.includes(n), n);
   assert.equal(new Set(POSTOS_FALTA).size, POSTOS_FALTA.length);
-  const sql = readFileSync(new URL("../supabase/migrations/20261009180308_add_postos_p252_p258.sql", import.meta.url), "utf8");
-  const doBanco = [...sql.matchAll(/^\s+'(.+?)',?$/gm)].map((m) => m[1]);
+  // A lista do app segue a migration mais recente do CHECK (P259, aplicada em produção em 14/11/2026).
+  const sql = readFileSync(new URL("../supabase/migrations/20261114120000_add_posto_p259_helbor_versailles.sql", import.meta.url), "utf8");
+  const doBanco = [...sql.matchAll(/^\s+'(.+?)',?\r?$/gm)].map((m) => m[1]);
   assert.deepEqual(doBanco, [...POSTOS_FALTA]);
+});
+
+test("P259 HELBOR VERSAILLES: os 95 postos anteriores preservados (CHECK P252–P258) e só o P259 acrescentado", () => {
+  const ler = (f: string) => [...readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), "utf8").matchAll(/^\s+'(.+?)',?\r?$/gm)].map((m) => m[1]);
+  // por sufixo: a versão difere entre branches (20261009120100 no main antigo / 20261009180308 = produção)
+  const p252 = readdirSync(new URL("../supabase/migrations/", import.meta.url)).filter((f) => f.endsWith("_add_postos_p252_p258.sql"));
+  assert.equal(p252.length, 1);
+  const antes = ler(p252[0]);
+  assert.equal(antes.length, 95);
+  assert.deepEqual([...POSTOS_FALTA], [...antes, "P259 HELBOR VERSAILLES"]);
+  assert.equal(POSTOS_FALTA.filter((p) => p.includes("P259")).length, 1);
 });
