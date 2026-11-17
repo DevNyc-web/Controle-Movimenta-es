@@ -189,3 +189,12 @@ test("aba oculta no Excel é marcada e as telas não a usam por padrão", async 
   assert.deepEqual(abasDoWorkbook(lido as never).map((a) => [a.nome, a.oculta]), [["Visivel", false], ["Escondida", true], ["MuitoEscondida", true]]);
   for (const p of ["src/routes/_app.conferencia.index.tsx", "src/routes/_app.pagamentos.tsx"]) assert.match(readFileSync(p, "utf8"), /usar: !a\.oculta/);
 });
+
+test("sinônimos de cargo das Relações Cadastrais reais (só textos de cargo); desconhecidos continuam pendentes", () => {
+  for (const c of ["PORTEIRA", "PORTEIRA/VIGIA", "PORTEIRO / VIGIA", "CONTROLADORA DE ACESSO", "CONTROLADOR(A) DE ACESSO"]) assert.equal(cargoReconhecido(c), "Porteiro", c);
+  for (const c of ["AUX SERV GERAIS", "AUX DE SERV GERAIS", "ZELADOR", "AUXILIAR DE SERVICOS GERAIS"]) assert.equal(cargoReconhecido(c), "ASG", c);
+  assert.equal(cargoReconhecido("VIGILANTE SEG PESSOAL PRIVADA"), "Vigilante");
+  assert.equal(cargoReconhecido("RECEPCIONISTA"), "Recepcionista");
+  for (const c of ["SUPERVISOR", "AUXILIAR ADMINISTRATIVO", "GERENTE DE RECURSOS HUMANOS", "REPRESENTANTE COMERCIAL", "AUX INSTALACAO DE SISTEMA DE SEG ELETR"])
+    assert.equal(cargoReconhecido(c), null, c);
+});

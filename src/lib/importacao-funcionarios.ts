@@ -67,7 +67,7 @@ export function cargoReconhecido(raw: string): (typeof CARGOS)[number] | null {
   const c = semAcento(raw || "").toUpperCase();
   if (c.includes("VIGILANTE")) return "Vigilante";
   if (["LIMPEZA", "ZELADOR", "ASG", "SERVICOS GERAIS", "SERV GERAIS", "AUX. SERVICOS", "AUXILIAR DE SERVICOS"].some((k) => c.includes(k))) return "ASG";
-  if (["PORTARIA", "PORTEIRO", "VIGIA", "CONTROLADOR", "ACESSO", "MONITORAMENTO", "BOMBEIRO", "INSPETOR", "VISTORIA"].some((k) => c.includes(k))) return "Porteiro";
+  if (["PORTARIA", "PORTEIRO", "PORTEIRA", "VIGIA", "CONTROLADOR", "ACESSO", "MONITORAMENTO", "BOMBEIRO", "INSPETOR", "VISTORIA"].some((k) => c.includes(k))) return "Porteiro";
   if (c.includes("RECEPCION")) return "Recepcionista";
   if (["MANUTEN", "INSTALADOR", "TECNICO"].some((k) => c.includes(k))) return "Manutencista";
   if (c.includes("FREELANCER")) return "Freelancer";
