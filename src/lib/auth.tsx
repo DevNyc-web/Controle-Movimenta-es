@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { trocaDeConta } from "@/lib/auth-sessao";
 import type { Session, User } from "@supabase/supabase-js";
 
 export type Role = "gestor" | "apontamento" | "supervisor";
@@ -32,12 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const contaAplicada = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     let mounted = true;
 
     async function applySession(sess: Session | null) {
       if (!mounted) return;
+      contaAplicada.current = sess?.user?.id ?? null;
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) await loadProfile(sess.user.id);
@@ -49,7 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, sess) => {
-      setLoading(true);
+      // loading=true faz o AppLayout desmontar a tela; só quando a conta muda (ver auth-sessao.ts, P4-F4)
+      if (trocaDeConta(contaAplicada.current, sess?.user?.id ?? null)) setLoading(true);
       setTimeout(() => applySession(sess), 0);
     });
 
