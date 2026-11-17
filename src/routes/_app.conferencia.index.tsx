@@ -34,7 +34,8 @@ function ImportacaoOficialPage() {
   const { isGestor } = useAuth();
   const navigate = useNavigate();
   const [lista, setLista] = useState<Conf[]>([]);
-  const [validadas, setValidadas] = useState<Set<string>>(new Set());
+  // null = lista ainda não carregou (ou falhou): sem aviso de "primeira importação" até saber. A decisão real é do servidor.
+  const [validadas, setValidadas] = useState<Set<string> | null>(null);
   const [abas, setAbas] = useState<Aba[]>([]);
   const [arquivos, setArquivos] = useState("");
   const [empresa, setEmpresa] = useState<Empresa | "">("");
@@ -49,7 +50,7 @@ function ImportacaoOficialPage() {
         if (error) toast.error("Não foi possível carregar o histórico.");
         setLista((data ?? []) as unknown as Conf[]);
       });
-    supabase.from("importacao_empresas").select("empresa").then(({ data }) => setValidadas(new Set((data ?? []).map((r) => r.empresa))));
+    supabase.from("importacao_empresas").select("empresa").then(({ data, error }) => { if (!error) setValidadas(new Set((data ?? []).map((r) => r.empresa))); });
   }, [isGestor]);
 
   if (!isGestor) return <div className="text-sm text-muted-foreground">Acesso restrito ao Gestor.</div>;
@@ -63,7 +64,7 @@ function ImportacaoOficialPage() {
   const impresso = comTotal.length ? comTotal.reduce((s, l) => s + (l.totalImpresso as number), 0) : null;
   const lidasComTotal = comTotal.reduce((s, l) => s + l.linhas.length, 0);
   const pronto = !!empresa && usadas.length > 0 && usadas.every(mapeada) && linhas.length > 0 && linhas.length <= LIMITE_LINHAS;
-  const primeira = !!empresa && !validadas.has(empresa);
+  const primeira = !!empresa && validadas !== null && !validadas.has(empresa);
 
   async function selecionar(e: React.ChangeEvent<HTMLInputElement>) {
     const files = [...(e.target.files ?? [])];

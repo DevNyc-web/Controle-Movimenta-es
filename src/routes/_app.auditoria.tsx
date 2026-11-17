@@ -1,15 +1,13 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { format } from "date-fns";
 import { Download } from "lucide-react";
 
+// Sem beforeLoad: no SSR não há sessão (fica no navegador) e ele redirecionava F5/URL para /login → Dashboard.
+// A sessão é exigida pelo AppGuard de _app.tsx; o acesso, pelo isGestor da página e pela função auditoria_listar (recusa quem não é Gestor).
 export const Route = createFileRoute("/_app/auditoria")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/login" });
-  },
   component: AuditoriaPage,
 });
 
