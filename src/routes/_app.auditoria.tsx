@@ -1,12 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { format } from "date-fns";
 import { Download } from "lucide-react";
+import { toast } from "sonner";
+import {
+  FILTROS_VAZIOS, LIMITE_CSV, LOTE_CSV, TAMANHO_PAGINA, coletarTodas, contemTexto, juntarPaginas, paramsPagina, periodoInvalido, proximoCursor,
+  type Cursor, type FiltrosAuditoria,
+} from "@/lib/auditoria";
 
 // Sem beforeLoad: no SSR não há sessão (fica no navegador) e ele redirecionava F5/URL para /login → Dashboard.
-// A sessão é exigida pelo AppGuard de _app.tsx; o acesso, pelo isGestor da página e pela função auditoria_listar (recusa quem não é Gestor).
+// A sessão é exigida pelo AppGuard de _app.tsx; o acesso, pelo isGestor da página e pelas funções auditoria_pagina/auditoria_filtros (recusam quem não é Gestor).
 export const Route = createFileRoute("/_app/auditoria")({
   component: AuditoriaPage,
 });
@@ -81,67 +86,114 @@ function getObjectDescription(log: Log) {
   return parts.length ? parts.join(" | ") : (log.entity_id ?? "—");
 }
 
+type Opcoes = { usuarios: { id: string; username: string | null }[]; acoes: string[]; perfis: string[]; modulos: string[] };
+const OPCOES_VAZIAS: Opcoes = { usuarios: [], acoes: [], perfis: [], modulos: [] };
+const perfilLabel: Record<string, string> = { gestor: "Gestor", apontamento: "Apontamento", supervisor: "Supervisor", admin: "Admin", rh: "RH" };
+
+const buscarPagina = async (f: FiltrosAuditoria, cursor: Cursor, tamanho: number) => {
+  // Sem leitura direta de audit_logs: a função do Gestor devolve uma página com CPF mascarado (os registros gravados não mudam).
+  const { data, error } = await supabase.rpc("auditoria_pagina", paramsPagina(f, cursor, tamanho));
+  if (error) throw error;
+  return (data ?? []) as Log[];
+};
+
+const textoDoRegistro = (l: Log) => [l.username, getAction(l), getModule(l), getObjectDescription(l), l.description, l.entity_id];
+
 function AuditoriaPage() {
   const { isGestor } = useAuth();
+  const [filtros, setFiltros] = useState<FiltrosAuditoria>(FILTROS_VAZIOS);
+  const [opcoes, setOpcoes] = useState<Opcoes>(OPCOES_VAZIAS);
   const [logs, setLogs] = useState<Log[]>([]);
+  const [cursor, setCursor] = useState<Cursor>(null);
   const [loading, setLoading] = useState(true);
-  const [fUser, setFUser] = useState("");
-  const [fRole, setFRole] = useState("");
-  const [fAction, setFAction] = useState("");
-  const [fEntity, setFEntity] = useState("");
-  const [fStart, setFStart] = useState("");
-  const [fEnd, setFEnd] = useState("");
+  const [carregandoMais, setCarregandoMais] = useState(false);
+  const [erro, setErro] = useState("");
+  const [pesquisa, setPesquisa] = useState("");
+  const [exportando, setExportando] = useState<number | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  // Só a resposta da consulta mais recente é usada (filtros trocados rapidamente não misturam resultados).
+  const consulta = useRef(0);
 
-  useEffect(() => { if (isGestor) load(); }, [isGestor]);
+  const invalido = periodoInvalido(filtros);
 
-  async function load() {
-    setLoading(true);
-    // Sem leitura direta de audit_logs: a função do Gestor devolve os registros com CPF mascarado (os gravados não mudam).
-    const { data, error } = await supabase.rpc("auditoria_listar", { _limite: 2000 });
-    if (error) console.error(error);
-    setLogs((data ?? []) as Log[]);
-    setLoading(false);
+  useEffect(() => {
+    if (!isGestor) return;
+    supabase.rpc("auditoria_filtros").then(({ data, error }) => {
+      if (error) return;
+      const o = (data ?? {}) as Partial<Opcoes>;
+      setOpcoes({ usuarios: o.usuarios ?? [], acoes: o.acoes ?? [], perfis: o.perfis ?? [], modulos: o.modulos ?? [] });
+    });
+  }, [isGestor]);
+
+  // Filtro mudou → recomeça do início (cursor zerado).
+  useEffect(() => {
+    if (!isGestor || invalido) return;
+    const n = ++consulta.current;
+    setLoading(true); setErro(""); setLogs([]); setCursor(null); setExpanded(null);
+    buscarPagina(filtros, null, TAMANHO_PAGINA)
+      .then((p) => { if (n !== consulta.current) return; setLogs(p); setCursor(proximoCursor(p, TAMANHO_PAGINA)); })
+      .catch(() => { if (n === consulta.current) setErro("Não foi possível carregar a auditoria."); })
+      .finally(() => { if (n === consulta.current) setLoading(false); });
+  }, [isGestor, filtros, invalido]);
+
+  async function carregarMais() {
+    if (!cursor) return;
+    const n = consulta.current;
+    setCarregandoMais(true);
+    try {
+      const p = await buscarPagina(filtros, cursor, TAMANHO_PAGINA);
+      if (n !== consulta.current) return;
+      setLogs((atual) => juntarPaginas(atual, p));
+      setCursor(proximoCursor(p, TAMANHO_PAGINA));
+    } catch {
+      if (n === consulta.current) toast.error("Não foi possível carregar mais registros.");
+    } finally {
+      setCarregandoMais(false);
+    }
   }
 
-  const filtered = useMemo(() => {
-    return logs.filter((l) => {
-      if (fUser && !(l.username ?? "").toLowerCase().includes(fUser.toLowerCase())) return false;
-      if (fRole && l.role !== fRole) return false;
-      if (fAction) {
-        const actionText = `${l.action} ${getAction(l)}`.toLowerCase();
-        if (!actionText.includes(fAction.toLowerCase())) return false;
-      }
-      if (fEntity && l.entity_type !== fEntity) return false;
-      if (fStart && l.created_at < fStart) return false;
-      if (fEnd && l.created_at > fEnd + "T23:59:59") return false;
-      return true;
-    });
-  }, [logs, fUser, fRole, fAction, fEntity, fStart, fEnd]);
+  const visiveis = useMemo(() => logs.filter((l) => contemTexto(textoDoRegistro(l), pesquisa)), [logs, pesquisa]);
 
   if (!isGestor) return <div className="text-sm text-muted-foreground">Acesso restrito ao Gestor.</div>;
 
-  function exportCsv() {
-    const headers = ["Data", "Usuário", "Permissão", "Ação", "Módulo", "Registro", "Descrição"];
-    const lines = [headers.join(";")];
-    filtered.forEach((l) => {
-      lines.push([
-        format(new Date(l.created_at), "dd/MM/yyyy HH:mm:ss"),
-        l.username ?? "",
-        l.role ?? "",
-        getAction(l),
-        getModule(l),
-        l.entity_id ?? "",
-        (l.description ?? "").replace(/[;\n]/g, " "),
-      ].join(";"));
-    });
-    const blob = new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `auditoria_${format(new Date(), "yyyyMMdd_HHmm")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const mudar = (campo: keyof FiltrosAuditoria) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setFiltros((f) => ({ ...f, [campo]: e.target.value }));
+
+  async function exportCsv() {
+    setExportando(0);
+    try {
+      const r = await coletarTodas((c) => buscarPagina(filtros, c, LOTE_CSV), { progresso: setExportando });
+      if (r.excedeu) {
+        toast.error(`Este filtro tem mais de ${LIMITE_CSV.toLocaleString("pt-BR")} registros. Nenhum arquivo foi gerado: restrinja o período ou os filtros e exporte de novo.`, { duration: 10000 });
+        return;
+      }
+      const linhas = r.linhas.filter((l) => contemTexto(textoDoRegistro(l), pesquisa));
+      const headers = ["Data", "Usuário", "Permissão", "Ação", "Módulo", "Registro", "Descrição"];
+      const out = [headers.join(";")];
+      linhas.forEach((l) => {
+        out.push([
+          format(new Date(l.created_at), "dd/MM/yyyy HH:mm:ss"),
+          l.username ?? "",
+          l.role ?? "",
+          getAction(l),
+          getModule(l),
+          l.entity_id ?? "",
+          (l.description ?? "").replace(/[;\n]/g, " "),
+        ].join(";"));
+      });
+      const blob = new Blob(["﻿" + out.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `auditoria_${format(new Date(), "yyyyMMdd_HHmm")}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`CSV com ${linhas.length.toLocaleString("pt-BR")} registro(s) de ${r.linhas.length.toLocaleString("pt-BR")} do filtro${pesquisa.trim() ? " (pesquisa aplicada)" : ""}.`);
+    } catch {
+      toast.error("Não foi possível exportar. Nenhum arquivo foi gerado.");
+    } finally {
+      setExportando(null);
+    }
   }
 
   return (
@@ -151,40 +203,60 @@ function AuditoriaPage() {
         <p className="text-muted-foreground mt-1">Registro imutável com usuário, ação, módulo e detalhes do que foi alterado.</p>
       </div>
 
-      <div className="bg-card border border-oak-light rounded-3xl p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3 items-end">
-        <Field label="Usuário"><input value={fUser} onChange={(e) => setFUser(e.target.value)} className={inp} placeholder="username" /></Field>
-        <Field label="Permissão">
-          <select value={fRole} onChange={(e) => setFRole(e.target.value)} className={inp}>
-            <option value="">Todas</option>
-            <option value="gestor">Gestor</option>
-            <option value="apontamento">Apontamento</option>
-            <option value="supervisor">Supervisor</option>
-          </select>
-        </Field>
-        <Field label="Ação"><input value={fAction} onChange={(e) => setFAction(e.target.value)} className={inp} placeholder="Criou, alterou, excluiu..." /></Field>
-        <Field label="Tipo">
-          <select value={fEntity} onChange={(e) => setFEntity(e.target.value)} className={inp}>
-            <option value="">Todos</option>
-            <option value="ft">Movimentação</option>
-            <option value="funcionarios">Funcionário</option>
-            <option value="profiles">Usuário</option>
-            <option value="user_roles">Permissão</option>
-            <option value="conferencias">Importação oficial</option>
-            <option value="conferencia_itens">Item de importação</option>
-          </select>
-        </Field>
-        <Field label="De"><input type="date" value={fStart} onChange={(e) => setFStart(e.target.value)} className={inp} /></Field>
-        <Field label="Até"><input type="date" value={fEnd} onChange={(e) => setFEnd(e.target.value)} className={inp} /></Field>
-        <button onClick={exportCsv} disabled={!filtered.length} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-oak-dark text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
-          <Download className="size-4" /> CSV
-        </button>
+      <div className="bg-card border border-oak-light rounded-3xl p-6 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end">
+          <Field label="Usuário">
+            <select value={filtros.userId} onChange={mudar("userId")} className={inp} aria-label="Usuário">
+              <option value="">Todos</option>
+              {opcoes.usuarios.map((u) => <option key={u.id} value={u.id}>{u.username ?? u.id}</option>)}
+            </select>
+          </Field>
+          <Field label="Permissão">
+            <select value={filtros.role} onChange={mudar("role")} className={inp} aria-label="Permissão">
+              <option value="">Todas</option>
+              {opcoes.perfis.map((p) => <option key={p} value={p}>{perfilLabel[p] ?? p}</option>)}
+            </select>
+          </Field>
+          <Field label="Ação">
+            <select value={filtros.action} onChange={mudar("action")} className={inp} aria-label="Ação">
+              <option value="">Todas</option>
+              {opcoes.acoes.map((a) => <option key={a} value={a}>{actionLabel[a] ?? a}</option>)}
+            </select>
+          </Field>
+          <Field label="Tipo">
+            <select value={filtros.entityType} onChange={mudar("entityType")} className={inp} aria-label="Tipo">
+              <option value="">Todos</option>
+              {opcoes.modulos.map((m) => <option key={m} value={m}>{entityLabel[m] ?? m}</option>)}
+            </select>
+          </Field>
+          <Field label="De"><input type="date" value={filtros.de} onChange={mudar("de")} className={inp} aria-label="De" /></Field>
+          <Field label="Até"><input type="date" value={filtros.ate} onChange={mudar("ate")} className={inp} aria-label="Até" /></Field>
+        </div>
+        {invalido && <p className="text-sm text-destructive">A data inicial é posterior à final.</p>}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+          <Field label="Pesquisar nos registros carregados">
+            <input value={pesquisa} onChange={(e) => setPesquisa(e.target.value)} className={inp} placeholder="Texto em usuário, ação, módulo ou descrição" aria-label="Pesquisar nos registros carregados" />
+          </Field>
+          <button onClick={exportCsv} disabled={exportando !== null || invalido || loading} className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-oak-dark text-primary-foreground rounded-xl text-sm font-medium hover:opacity-90 disabled:opacity-50">
+            <Download className="size-4" /> {exportando === null ? "CSV" : `Exportando ${exportando.toLocaleString("pt-BR")}...`}
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Usuário, permissão, ação, tipo e período consultam todo o histórico no servidor. A pesquisa de texto vale só para os{" "}
+          {logs.length.toLocaleString("pt-BR")} registro(s) já carregados, com CPF mascarado; para encontrar registros antigos, use os filtros
+          ou “Carregar mais”. O CSV traz todos os registros dos filtros (e da pesquisa, se houver), até {LIMITE_CSV.toLocaleString("pt-BR")}.
+        </p>
       </div>
 
       <div className="bg-card border border-oak-light rounded-3xl overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-sm text-muted-foreground">Carregando...</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">Nenhum registro.</div>
+        ) : erro ? (
+          <div className="p-12 text-center text-sm text-destructive">{erro}</div>
+        ) : visiveis.length === 0 ? (
+          <div className="p-12 text-center text-sm text-muted-foreground">
+            {logs.length && pesquisa.trim() ? "Nenhum registro carregado contém esse texto." : "Nenhum registro."}
+          </div>
         ) : (
           <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -194,7 +266,7 @@ function AuditoriaPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-oak-light">
-              {filtered.map((l) => (
+              {visiveis.map((l) => (
                 <React.Fragment key={l.id}>
                   <tr className="hover:bg-sand/20 cursor-pointer" onClick={() => setExpanded(expanded === l.id ? null : l.id)}>
                     <td className="px-6 py-3 text-xs tabular-nums">{format(new Date(l.created_at), "dd/MM/yy HH:mm:ss")}</td>
@@ -216,6 +288,20 @@ function AuditoriaPage() {
               ))}
             </tbody>
           </table>
+          </div>
+        )}
+        {!loading && !erro && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-oak-light text-sm">
+            <span className="text-muted-foreground">
+              {logs.length.toLocaleString("pt-BR")} registro(s) carregado(s){pesquisa.trim() ? `; ${visiveis.length.toLocaleString("pt-BR")} com o texto pesquisado` : ""}
+            </span>
+            {cursor ? (
+              <button onClick={carregarMais} disabled={carregandoMais} className="px-4 py-2 bg-sand rounded-xl font-medium hover:opacity-90 disabled:opacity-50">
+                {carregandoMais ? "Carregando..." : `Carregar mais ${TAMANHO_PAGINA}`}
+              </button>
+            ) : (
+              <span className="text-muted-foreground">Fim do histórico para estes filtros.</span>
+            )}
           </div>
         )}
       </div>

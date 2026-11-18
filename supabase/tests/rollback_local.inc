@@ -7,6 +7,17 @@ RB2=supabase/rollback/20261105120100_rollback.sql
 RB1=supabase/rollback/20261105120000_rollback.sql
 val_db() { "$PGBIN/psql" -X -At -d "$1" -c "$2"; }
 
+# 00) 20261118120000 (auditoria paginada): remove só as funções novas e o índice; auditoria_listar e as permissões ficam
+RB8=supabase/rollback/20261118120000_rollback.sql
+P8="select (select count(*) from pg_proc where proname in ('auditoria_pagina', 'auditoria_filtros'))::text || '/' || (to_regclass('public.idx_audit_logs_created_id') is null)::text || '/' || (to_regprocedure('public.auditoria_listar(integer)') is not null)::text || '/' || has_any_column_privilege('authenticated', 'public.audit_logs', 'SELECT')::text"
+for B in rollback_guarda rollback_ok; do
+  if sql -d "$B" -f "$RB8" && [ "$(val_db "$B" "$P8")" = "0/true/true/false" ]; then
+    echo "OK    rollback 20261118120000 em $B: funções e índice removidos; auditoria_listar e permissões intactas"
+  else
+    echo "FALHA rollback 20261118120000 em $B: [$(val_db "$B" "$P8")]"; falhas=$((falhas + 1))
+  fi
+done
+
 # 0) 20261113120000 depois de 20261105120100: o rollback dela recusa e não muda nada (o estado é o de 20261105120100)
 RB7=supabase/rollback/20261113120000_rollback.sql
 P7="select count(*)::text || '/' || has_table_privilege('authenticated', 'public.audit_logs', 'INSERT')::text || '/' || has_table_privilege('authenticated', 'public.ft_historico', 'INSERT')::text from pg_policies where policyname in ('Auth insert audit', 'Auth insert historico')"

@@ -534,6 +534,20 @@ export type Database = {
           new_data: Json | null; observacao: string | null; old_data: Json | null; role: string | null; user_id: string | null; username: string | null
         }[]
       }
+      auditoria_pagina: {
+        Args: {
+          _de?: string | null; _ate?: string | null; _user_id?: string | null; _role?: string | null; _action?: string | null
+          _entity_type?: string | null; _antes_em?: string | null; _antes_id?: string | null; _tamanho?: number
+        }
+        Returns: {
+          action: string; created_at: string; description: string | null; entity_id: string | null; entity_type: string; id: string
+          new_data: Json | null; observacao: string | null; old_data: Json | null; role: string | null; user_id: string | null; username: string | null
+        }[]
+      }
+      auditoria_filtros: {
+        Args: never
+        Returns: Json
+      }
       funcionarios_cpfs: {
         Args: never
         Returns: { cpf: string; id: string }[]

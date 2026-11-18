@@ -128,6 +128,6 @@ test("trocar cargo de ou para Freelancer exige justificativa; outras trocas de c
 
 test("Auditoria lê pela função com CPF mascarado, nunca direto da tabela", () => {
   const s = readFileSync("src/routes/_app.auditoria.tsx", "utf8");
-  assert.match(s, /rpc\("auditoria_listar"/);
+  assert.match(s, /rpc\("auditoria_pagina"/); // 20261118120000: paginada; mesma máscara de auditoria_listar
   assert.doesNotMatch(s, /from\("audit_logs"\)/);
 });
