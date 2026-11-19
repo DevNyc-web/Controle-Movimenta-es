@@ -76,6 +76,9 @@ export type Database = {
           motivo: string | null
           numero_ft: string
           pagamento_em_folha: boolean
+          retroativa_autorizada_em: string | null
+          retroativa_autorizada_por: string | null
+          retroativa_justificativa: string | null
           observacao: string | null
           posto_falta: string | null
           status: Database["public"]["Enums"]["ft_status"]
@@ -99,6 +102,9 @@ export type Database = {
           motivo?: string | null
           numero_ft?: string
           pagamento_em_folha?: boolean
+          retroativa_autorizada_em?: string | null
+          retroativa_autorizada_por?: string | null
+          retroativa_justificativa?: string | null
           observacao?: string | null
           posto_falta?: string | null
           status?: Database["public"]["Enums"]["ft_status"]
@@ -122,6 +128,9 @@ export type Database = {
           motivo?: string | null
           numero_ft?: string
           pagamento_em_folha?: boolean
+          retroativa_autorizada_em?: string | null
+          retroativa_autorizada_por?: string | null
+          retroativa_justificativa?: string | null
           observacao?: string | null
           posto_falta?: string | null
           status?: Database["public"]["Enums"]["ft_status"]
@@ -248,6 +257,118 @@ export type Database = {
           },
         ]
       }
+      conferencias: {
+        Row: {
+          arquivo_abas: string[]
+          arquivo_nome: string
+          criada_em: string
+          criada_por: string
+          encerrada_em: string | null
+          encerrada_por: string | null
+          id: string
+          linhas_ignoradas: number
+          mapeamento: Json
+          motivo_descarte: string | null
+          resultado: Json | null
+          resumo: Json
+          status: string
+          total_impresso: number | null
+          empresa: string | null
+          primeira_da_empresa: boolean | null
+          quadro_completo_em: string | null
+          quadro_completo_por: string | null
+          revisao: number
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      conferencia_itens: {
+        Row: {
+          acao: string | null
+          acao_sugerida: string | null
+          atual: Json | null
+          conferencia_id: string
+          dados: Json | null
+          decidido_em: string | null
+          decidido_por: string | null
+          decisao: string
+          folha: Json | null
+          funcionario_id: string | null
+          id: string
+          justificativa: string | null
+          motivo: string
+          novo_funcionario_id: string | null
+          opcoes: string[]
+          ordem: number
+          origens: string[]
+          resultado: string | null
+          resultado_detalhe: string | null
+          tipo: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      importacao_empresas: {
+        Row: {
+          conferencia_id: string
+          empresa: string
+          validada_em: string
+          validada_por: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      funcionario_inatividades: {
+        Row: {
+          anulacao_fts: Json | null
+          anulacao_justificativa: string | null
+          anulada_em: string | null
+          anulada_por: string | null
+          fim: string | null
+          funcionario_id: string
+          id: string
+          inativado_em: string
+          inativado_por: string | null
+          inicio: string
+          motivo_reativacao: string | null
+          reativado_em: string | null
+          reativado_por: string | null
+        }
+        Insert: {
+          anulacao_fts?: Json | null
+          anulacao_justificativa?: string | null
+          anulada_em?: string | null
+          anulada_por?: string | null
+          fim?: string | null
+          funcionario_id: string
+          id?: string
+          inativado_em?: string
+          inativado_por?: string | null
+          inicio: string
+          motivo_reativacao?: string | null
+          reativado_em?: string | null
+          reativado_por?: string | null
+        }
+        Update: {
+          anulacao_fts?: Json | null
+          anulacao_justificativa?: string | null
+          anulada_em?: string | null
+          anulada_por?: string | null
+          fim?: string | null
+          funcionario_id?: string
+          id?: string
+          inativado_em?: string
+          inativado_por?: string | null
+          inicio?: string
+          motivo_reativacao?: string | null
+          reativado_em?: string | null
+          reativado_por?: string | null
+        }
+        Relationships: []
+      }
       funcionarios: {
         Row: {
           banco_horas: number
@@ -263,6 +384,9 @@ export type Database = {
           status: string
           status_ativo: boolean
           supervisor: string | null
+          data_inativacao: string | null
+          inativado_por: string | null
+          reativacao_motivo: string | null
           turno: string
           updated_at: string
           usa_banco_horas: boolean
@@ -281,6 +405,9 @@ export type Database = {
           status?: string
           status_ativo?: boolean
           supervisor?: string | null
+          data_inativacao?: string | null
+          inativado_por?: string | null
+          reativacao_motivo?: string | null
           turno: string
           updated_at?: string
           usa_banco_horas?: boolean
@@ -299,6 +426,9 @@ export type Database = {
           status?: string
           status_ativo?: boolean
           supervisor?: string | null
+          data_inativacao?: string | null
+          inativado_por?: string | null
+          reativacao_motivo?: string | null
           turno?: string
           updated_at?: string
           usa_banco_horas?: boolean
@@ -361,8 +491,69 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      anular_inatividade: {
+        Args: { _justificativa: string; _periodo_id: string }
+        Returns: undefined
+      }
       aprovar_cancelamento: {
         Args: { _solicitacao_id: string; _obs?: string }
+        Returns: undefined
+      }
+      conferencia_aplicar: {
+        Args: { _confirmacao: string; _id: string; _revisao: number }
+        Returns: Json
+      }
+      conferencia_criar: {
+        Args: { _arquivo: Json; _itens: Json; _resumo: Json }
+        Returns: string
+      }
+      conferencia_decidir: {
+        Args: { _acao?: string; _dados?: Json; _decisao: string; _item: string; _justificativa?: string }
+        Returns: number
+      }
+      conferencia_confirmar_quadro: {
+        Args: { _confirmacao: string; _id: string }
+        Returns: number
+      }
+      conferencia_inativar_lote: {
+        Args: { _confirmacao: string; _id: string; _itens: string[]; _justificativa: string }
+        Returns: number
+      }
+      funcionario_alterar_cpf: {
+        Args: { _cpf: string; _id: string; _justificativa: string }
+        Returns: undefined
+      }
+      funcionario_cpf: {
+        Args: { _id: string }
+        Returns: string | null
+      }
+      auditoria_listar: {
+        Args: { _limite?: number }
+        Returns: {
+          action: string; created_at: string; description: string | null; entity_id: string | null; entity_type: string; id: string
+          new_data: Json | null; observacao: string | null; old_data: Json | null; role: string | null; user_id: string | null; username: string | null
+        }[]
+      }
+      auditoria_pagina: {
+        Args: {
+          _de?: string | null; _ate?: string | null; _user_id?: string | null; _role?: string | null; _action?: string | null
+          _entity_type?: string | null; _antes_em?: string | null; _antes_id?: string | null; _tamanho?: number
+        }
+        Returns: {
+          action: string; created_at: string; description: string | null; entity_id: string | null; entity_type: string; id: string
+          new_data: Json | null; observacao: string | null; old_data: Json | null; role: string | null; user_id: string | null; username: string | null
+        }[]
+      }
+      auditoria_filtros: {
+        Args: never
+        Returns: Json
+      }
+      funcionarios_cpfs: {
+        Args: never
+        Returns: { cpf: string; id: string }[]
+      }
+      conferencia_descartar: {
+        Args: { _id: string; _motivo: string }
         Returns: undefined
       }
       has_role: {

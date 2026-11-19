@@ -1,9 +1,9 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 export async function assertGestor(supabase: any, userId: string) {
-  const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
-  const roles = (data ?? []).map((r: any) => r.role);
-  if (!roles.includes("gestor")) throw new Error("Apenas Gestor pode executar esta ação.");
+  // has_role é a mesma regra da RLS: perfil existente e conta ativa.
+  const { data, error } = await supabase.rpc("has_role", { _user_id: userId, _role: "gestor" });
+  if (error || data !== true) throw new Error("Apenas Gestor pode executar esta ação.");
 }
 
 export async function logAudit(

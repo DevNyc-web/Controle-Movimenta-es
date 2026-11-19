@@ -3,10 +3,11 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { FuncionarioPicker } from "@/components/FuncionarioPicker";
+import { FuncionarioPicker, type FuncionarioOpcao } from "@/components/FuncionarioPicker";
 import { PostoCombobox } from "@/components/PostoCombobox";
 import { MOTIVOS } from "@/lib/motivos";
 import { ESCALAS, ESCALAS_HORAS } from "@/lib/escalas";
+import { avaliarRetroativa, formatarData, JUSTIFICATIVA_MAX, JUSTIFICATIVA_MIN, justificativaValida, mensagemRegra } from "@/lib/funcionario-status";
 
 export const Route = createFileRoute("/_app/ft/novo")({
   component: NovaMovimentacao,
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/_app/ft/novo")({
 
 function NovaMovimentacao() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isGestor } = useAuth();
   const [form, setForm] = useState({
     funcionario_id: "",
     funcionario_faltante_id: "",
@@ -29,6 +30,22 @@ function NovaMovimentacao() {
     pagamento_em_folha: false,
   });
   const [loading, setLoading] = useState(false);
+  // Lançamento retroativo com funcionário inativo: exceção do Gestor. O banco revalida perfil, data e justificativa.
+  const [retroativa, setRetroativa] = useState(false);
+  const [justificativa, setJustificativa] = useState("");
+  const [vinculos, setVinculos] = useState<{ funcionario?: FuncionarioOpcao; faltante?: FuncionarioOpcao }>({});
+  const { inativos, bloqueio } = avaliarRetroativa([vinculos.funcionario, vinculos.faltante], form.data_ft);
+
+  function alternarRetroativa(ligar: boolean) {
+    setRetroativa(ligar);
+    setJustificativa("");
+    if (ligar) return;
+    const manter = (f?: FuncionarioOpcao) => (f?.status === "inativo" ? undefined : f);
+    const funcionario = manter(vinculos.funcionario);
+    const faltante = manter(vinculos.faltante);
+    setVinculos({ funcionario, faltante });
+    setForm({ ...form, funcionario_id: funcionario?.id ?? "", funcionario_faltante_id: faltante?.id ?? "" });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,6 +53,9 @@ function NovaMovimentacao() {
     if (!form.posto_falta.trim()) return toast.error("Selecione o posto onde ocorreu a falta");
     if (form.escala_servico === "Outros" && !form.escala_outros.trim())
       return toast.error("Informe a escala em 'Outros'");
+    if (bloqueio) return toast.error(bloqueio);
+    if (inativos.length > 0 && !justificativaValida(justificativa))
+      return toast.error(`Informe a justificativa (${JUSTIFICATIVA_MIN} a ${JUSTIFICATIVA_MAX} caracteres).`);
 
     setLoading(true);
     const escala = form.escala_servico === "Outros" ? form.escala_outros.trim() : form.escala_servico;
@@ -53,11 +73,12 @@ function NovaMovimentacao() {
       posto_falta: form.posto_falta,
       pagamento_em_folha: form.pagamento_em_folha,
       lancado_por: user?.id,
+      ...(inativos.length > 0 ? { retroativa_justificativa: justificativa.trim() } : {}),
     });
     setLoading(false);
     if (error) {
       if (error.code === "23505") toast.error("Já existe uma movimentação para este funcionário nesta data.");
-      else toast.error(error.message);
+      else toast.error(mensagemRegra(error.message));
     } else {
       toast.success("Movimentação registrada");
       navigate({ to: "/ft" });
@@ -77,17 +98,55 @@ function NovaMovimentacao() {
         <FuncionarioPicker
           label="Funcionário"
           value={form.funcionario_id}
-          onChange={(id) => setForm({ ...form, funcionario_id: id })}
+          onChange={(id, f) => { setForm({ ...form, funcionario_id: id }); setVinculos({ ...vinculos, funcionario: f }); }}
           required
           excludeId={form.funcionario_faltante_id}
+          incluirInativos={retroativa}
         />
 
         <FuncionarioPicker
           label="Funcionário faltante"
           value={form.funcionario_faltante_id}
-          onChange={(id) => setForm({ ...form, funcionario_faltante_id: id })}
+          onChange={(id, f) => { setForm({ ...form, funcionario_faltante_id: id }); setVinculos({ ...vinculos, faltante: f }); }}
           excludeId={form.funcionario_id}
+          incluirInativos={retroativa}
         />
+
+        {isGestor && (
+          <label className="flex items-center gap-3 px-4 py-3 bg-sand rounded-xl cursor-pointer">
+            <input type="checkbox" checked={retroativa} onChange={(e) => alternarRetroativa(e.target.checked)} className="size-4 accent-[var(--oak-dark)]" />
+            <span className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">Lançamento retroativo de funcionário inativo</span>
+          </label>
+        )}
+
+        {inativos.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 space-y-3 text-sm">
+            <p className="font-medium">Lançamento excepcional e retroativo</p>
+            <ul className="space-y-1">
+              {inativos.map((f) => (
+                <li key={f.id}>{f.nome} está inativo desde {formatarData(f.data_inativacao)}.</li>
+              ))}
+            </ul>
+            <p>Data do serviço: <strong>{formatarData(form.data_ft)}</strong>. Ela precisa ser anterior à inativação e não poderá ser alterada depois.</p>
+            {bloqueio ? (
+              <p className="font-medium text-rose-700">{bloqueio}</p>
+            ) : (
+              <div>
+                <label htmlFor="retroativa-justificativa" className="text-[10px] font-bold uppercase tracking-widest">Justificativa obrigatória</label>
+                <textarea
+                  id="retroativa-justificativa"
+                  required
+                  minLength={JUSTIFICATIVA_MIN}
+                  maxLength={JUSTIFICATIVA_MAX}
+                  value={justificativa}
+                  onChange={(e) => setJustificativa(e.target.value)}
+                  rows={3}
+                  className="mt-2 w-full px-4 py-2.5 bg-card rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-oak-dark/20"
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         <PostoCombobox
           value={form.posto_falta}
@@ -136,7 +195,7 @@ function NovaMovimentacao() {
 
         <div className="flex flex-col-reverse gap-3 pt-4 border-t border-oak-light sm:flex-row sm:justify-end">
           <button type="button" onClick={() => navigate({ to: "/ft" })} className="w-full sm:w-auto px-5 py-2.5 text-sm font-medium text-oak-dark hover:bg-oak-medium/20 rounded-xl">Cancelar</button>
-          <button type="submit" disabled={loading} className="w-full sm:w-auto px-6 py-2.5 bg-oak-dark text-primary-foreground text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50">
+          <button type="submit" disabled={loading || !!bloqueio} className="w-full sm:w-auto px-6 py-2.5 bg-oak-dark text-primary-foreground text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50">
             {loading ? "Salvando..." : "Registrar Movimentação"}
           </button>
         </div>

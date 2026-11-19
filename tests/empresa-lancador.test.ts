@@ -53,18 +53,17 @@ test("telas buscam e exibem empresa", () => {
     ["src/routes/_app.historico.tsx", [/fkey\(nome, re, empresa\)/, /f\.funcionario\.empresa/]],
     ["src/routes/_app.index.tsx", [/fkey\(nome, cargo, empresa\)/, /r\.funcionario\?\.empresa/]],
     ["src/routes/_app.relatorios.tsx", [/cargo, empresa\)/, /g\.empresa/]],
-    ["src/components/FuncionarioPicker.tsx", [/select\("id, nome, re, empresa"\)/, /f\.empresa/, /selected\.empresa/]],
+    ["src/components/FuncionarioPicker.tsx", [/select\("id, nome, re, empresa[,"]/, /f\.empresa/, /selected\.empresa/]],
     ["src/routes/_app.funcionarios.index.tsx", [/<Th>Empresa<\/Th>/, /f\.empresa/]],
     ["src/components/FuncionarioForm.tsx", [/label="Empresa"/, /empresa: form\.empresa \|\| null/]],
   ];
   for (const [arq, res] of casos) for (const re of res) assert.match(src(arq), re, `${arq}: ${re}`);
 });
 
-test("importador grava só empresa reconhecida e nunca o rótulo de origem", () => {
+test("importador direto foi retirado: a rota só redireciona e não grava no cadastro", () => {
   const imp = src("src/routes/_app.funcionarios.importar.tsx");
-  assert.match(imp, /empresa: normalizarEmpresa\(empresa\)/);
-  assert.match(imp, /\(\{ cargo_original, empresa_origem, \.\.\.rest \}\) => rest/); // empresa_origem segue fora do insert
-  assert.match(imp, /\.insert\(chunk/); // continua insert (sem upsert que sobrescreveria cadastros)
+  assert.match(imp, /redirect\(\{ to: "\/conferencia" \}\)/);
+  assert.doesNotMatch(imp, /\.insert\(|\.update\(|\.upsert\(|from\("funcionarios"\)/);
 });
 
 test("migration de empresa é só aditiva", () => {

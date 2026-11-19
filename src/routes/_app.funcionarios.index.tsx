@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Pencil, UserCheck, UserX, Search } from "lucide-react";
+import { formatarData, JUSTIFICATIVA_MIN, justificativaValida, mensagemRegra, STATUS_BADGE, STATUS_LABEL, statusDe, COLUNAS_FUNCIONARIO } from "@/lib/funcionario-status";
 
 
 export const Route = createFileRoute("/_app/funcionarios/")({
@@ -18,7 +19,7 @@ function FuncionariosList() {
 
   useEffect(() => { load(); }, []);
   async function load() {
-    const { data } = await supabase.from("funcionarios").select("*").order("nome");
+    const { data } = await supabase.from("funcionarios").select(COLUNAS_FUNCIONARIO).order("nome");
     setItems(data ?? []);
   }
 
@@ -26,12 +27,26 @@ function FuncionariosList() {
     (i) => i.nome.toLowerCase().includes(q.toLowerCase()) || (i.re ?? "").includes(q) || (i.empresa ?? "").toLowerCase().includes(q.toLowerCase())
   );
 
-  async function handleDelete(id: string) {
-    if (!confirm("Excluir este funcionário?")) return;
-    const { error } = await supabase.from("funcionarios").delete().eq("id", id);
-    if (error) toast.error(error.message);
+  // Data efetiva e autor são definidos pelo banco. FTs e histórico não são tocados.
+  async function inativar(f: { id: string; nome: string }) {
+    if (!confirm(`Inativar ${f.nome}? O funcionário deixa de aparecer em novos lançamentos. As movimentações antigas são preservadas.`)) return;
+    const { error } = await supabase.from("funcionarios").update({ status: "inativo" }).eq("id", f.id);
+    if (error) toast.error(mensagemRegra(error.message));
     else {
-      toast.success("Funcionário excluído");
+      toast.success("Funcionário inativado");
+      load();
+    }
+  }
+
+  // O motivo fica no período de inatividade. As datas em que esteve inativo continuam bloqueadas para FT.
+  async function reativar(f: { id: string; nome: string }) {
+    const motivo = prompt(`Motivo da reativação de ${f.nome} (pelo menos ${JUSTIFICATIVA_MIN} letras ou números):`);
+    if (motivo === null) return;
+    if (!justificativaValida(motivo)) return toast.error(`Informe o motivo com pelo menos ${JUSTIFICATIVA_MIN} letras ou números.`);
+    const { error } = await supabase.from("funcionarios").update({ status: "ativo", reativacao_motivo: motivo.trim() }).eq("id", f.id);
+    if (error) toast.error(mensagemRegra(error.message));
+    else {
+      toast.success("Funcionário reativado");
       load();
     }
   }
@@ -87,9 +102,10 @@ function FuncionariosList() {
                     <td className="px-8 py-5 text-sm">{f.turno}</td>
                     <td className="px-8 py-5 text-sm">{f.usa_banco_horas ? "Sim" : "Não"}</td>
                     <td className="px-8 py-5">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase ${f.status_ativo ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-600"}`}>
-                        {f.status_ativo ? "Ativo" : "Inativo"}
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase ${STATUS_BADGE[statusDe(f.status)]}`}>
+                        {STATUS_LABEL[statusDe(f.status)]}
                       </span>
+                      {f.data_inativacao && <span className="block mt-1 text-[10px] text-oak-dark/60">desde {formatarData(f.data_inativacao)}</span>}
                     </td>
                     <td className="px-8 py-5" onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-2">
@@ -97,9 +113,15 @@ function FuncionariosList() {
                           <Pencil className="size-3.5 text-oak-dark" />
                         </Link>
                         {isGestor && (
-                          <button onClick={() => handleDelete(f.id)} className="p-2 hover:bg-rose-100 rounded-lg" title="Excluir">
-                            <Trash2 className="size-3.5 text-rose-600" />
-                          </button>
+                          statusDe(f.status) === "inativo" ? (
+                            <button onClick={() => reativar(f)} className="p-2 hover:bg-emerald-100 rounded-lg" title="Reativar" aria-label={`Reativar ${f.nome}`}>
+                              <UserCheck className="size-3.5 text-emerald-700" />
+                            </button>
+                          ) : (
+                            <button onClick={() => inativar(f)} className="p-2 hover:bg-rose-100 rounded-lg" title="Inativar" aria-label={`Inativar ${f.nome}`}>
+                              <UserX className="size-3.5 text-rose-600" />
+                            </button>
+                          )
                         )}
                       </div>
                     </td>

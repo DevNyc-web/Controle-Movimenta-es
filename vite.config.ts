@@ -6,4 +6,5 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-export default defineConfig();
+// cloudflare: false → build Node (dist/server/server.js) servido por servidor-producao.mjs na VM (ensaio P3, opção A). Só afeta o build; o dev não usa o plugin.
+export default defineConfig({ cloudflare: false });

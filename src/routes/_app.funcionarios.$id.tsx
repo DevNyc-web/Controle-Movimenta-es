@@ -2,6 +2,9 @@ import { createFileRoute, useNavigate, useParams, Link } from "@tanstack/react-r
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { FuncionarioForm } from "@/components/FuncionarioForm";
+import { PeriodosInatividade } from "@/components/PeriodosInatividade";
+import { CpfFuncionario } from "@/components/CpfFuncionario";
+import { COLUNAS_FUNCIONARIO } from "@/lib/funcionario-status";
 import { ChevronLeft } from "lucide-react";
 
 export const Route = createFileRoute("/_app/funcionarios/$id")({
@@ -14,7 +17,7 @@ function EditarFuncionario() {
   const [data, setData] = useState<any>(null);
 
   useEffect(() => {
-    supabase.from("funcionarios").select("*").eq("id", id).maybeSingle().then(({ data }) => setData(data));
+    supabase.from("funcionarios").select(COLUNAS_FUNCIONARIO).eq("id", id).maybeSingle().then(({ data }) => setData(data));
   }, [id]);
 
   if (!data) return <div className="text-sm text-muted-foreground">Carregando...</div>;
@@ -29,6 +32,8 @@ function EditarFuncionario() {
         <p className="text-muted-foreground mt-1">Editar dados do colaborador.</p>
       </div>
       <FuncionarioForm initial={data} onDone={() => navigate({ to: "/funcionarios" })} />
+      <CpfFuncionario funcionarioId={id} />
+      <PeriodosInatividade funcionarioId={id} inativo={data.status === "inativo"} />
     </div>
   );
 }

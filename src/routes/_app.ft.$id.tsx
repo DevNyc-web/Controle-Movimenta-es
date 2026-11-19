@@ -18,7 +18,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useServerFn } from "@tanstack/react-start";
 import { getLancadorFt, getSolicitacaoCancelamentoFt } from "@/lib/ft.functions";
 import { descreverSolicitacao } from "@/lib/cancelamento";
-import { centavosDe, descreverCorrecao, formatarCentavos, montarCorrecao, parseValorCentavos, valorNoRelatorio } from "@/lib/ft-valor";
+import { centavosDe, formatarCentavos, montarCorrecao, parseValorCentavos, valorNoRelatorio } from "@/lib/ft-valor";
+import { mensagemRegra } from "@/lib/funcionario-status";
 
 export const Route = createFileRoute("/_app/ft/$id")({
   component: FtDetalhe,
@@ -75,7 +76,7 @@ function FtDetalhe() {
     };
   }, [id, recarga, buscarSolicitacao]);
   async function load() {
-    const { data } = await supabase.from("ft").select("*, funcionario:funcionarios!ft_funcionario_id_fkey(*), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re, empresa)").eq("id", id).maybeSingle();
+    const { data } = await supabase.from("ft").select("*, funcionario:funcionarios!ft_funcionario_id_fkey(nome, re, cargo, empresa, setor), funcionario_faltante:funcionarios!ft_funcionario_faltante_id_fkey(nome, re, empresa)").eq("id", id).maybeSingle();
     setFt(data);
     if (data) {
       setValorTxt(formatarCentavos(centavosDe(data.valor_pago)));
@@ -91,7 +92,7 @@ function FtDetalhe() {
     if (status === "APROVADA" || status === "NEGADA") payload.aprovado_por = user?.id;
     if (status === "CANCELADA") payload.data_cancelamento = new Date().toISOString();
     const { error } = await supabase.from("ft").update(payload).eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(mensagemRegra(error.message));
     else {
       toast.success(`Movimentação ${status.toLowerCase()}`);
       load();
@@ -110,19 +111,16 @@ function FtDetalhe() {
     const { data, error } = await supabase.from("ft").update(patch).eq("id", id).eq("status", "PENDENTE").eq("updated_at", ft.updated_at).select("id").maybeSingle();
     if (error || !data) {
       setSalvando(false);
-      if (error) toast.error(`Erro ao salvar: ${error.message}`);
+      if (error) toast.error(`Erro ao salvar: ${mensagemRegra(error.message)}`);
       else {
         setConflito(true);
         toast.error("Esta movimentação foi alterada por outro usuário (ou não está mais pendente). Nada foi salvo.");
       }
       return;
     }
-    // Fonte de auditoria garantida: audit_logs, gravado por trigger NA MESMA transação do UPDATE. O histórico da FT abaixo
-    // é um segundo comando (melhor esforço, para exibição): sem RPC/migration não dá para torná-lo atômico.
-    const { error: hErr } = await supabase.from("ft_historico").insert({ ft_id: id, acao: "VALORES_CORRIGIDOS", alterado_por: user!.id, observacao: descreverCorrecao(ft, patch) });
+    // audit_logs e o histórico da FT são gravados por trigger, na mesma transação do UPDATE.
     setSalvando(false);
-    if (hErr) toast.warning("Valores salvos, mas o histórico da FT não foi registrado (a auditoria geral registrou).");
-    else toast.success("Valores salvos");
+    toast.success("Valores salvos");
     load();
   }
 
@@ -180,6 +178,13 @@ function FtDetalhe() {
           <Info label="Funcionário faltante" value={`${ft.funcionario_faltante.nome} (RE ${ft.funcionario_faltante.re})${ft.funcionario_faltante.empresa ? ` — ${ft.funcionario_faltante.empresa}` : ""}`} className="col-span-2" />
         )}
         {ft.observacao && <Info label="Observação" value={ft.observacao} className="col-span-2" />}
+        {ft.retroativa_autorizada_em && (
+          <Info
+            label="Lançamento retroativo excepcional"
+            value={`${ft.retroativa_justificativa} (autorizado em ${format(new Date(ft.retroativa_autorizada_em), "dd/MM/yyyy HH:mm")})`}
+            className="col-span-2"
+          />
+        )}
         <Info label="Lançado por" value={lancador === undefined ? "Carregando..." : lancador ?? "Não identificado"} />
         <Info label="Data do lançamento" value={format(new Date(ft.created_at), "dd/MM/yyyy HH:mm")} />
         {solicitacao === "erro" && (

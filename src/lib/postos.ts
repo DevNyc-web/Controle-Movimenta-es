@@ -95,6 +95,7 @@ export const POSTOS_FALTA = [
   "P256 SP&G ENGENHARIA LTDA (DENTRO DA COCA COLA)",
   "P257 CONDOMINIO SPAZIO SUBLIME",
   "P258 COND. VILA CERES",
+  "P259 HELBOR VERSAILLES",
 ] as const;
 
 export type PostoFalta = (typeof POSTOS_FALTA)[number];

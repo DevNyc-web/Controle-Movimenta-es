@@ -74,11 +74,10 @@ test("aprovação/negação não mexe em valor nem folha (não sobrescreve corre
   assert.ok(tela.includes('onClick={() => changeStatus("NEGADA")} disabled={pendenteDeSalvar}'));
 });
 
-test("salvar usa trava otimista, só gestor em FT pendente, e registra histórico", () => {
+test("salvar usa trava otimista, só gestor em FT pendente; histórico é do banco", () => {
   const salvar = tela.slice(tela.indexOf("async function salvarCorrecao"), tela.indexOf("async function solicitarCancelamento"));
   assert.ok(salvar.includes('.update(patch).eq("id", id).eq("status", "PENDENTE").eq("updated_at", ft.updated_at).select("id").maybeSingle()'));
   assert.ok(salvar.includes("setConflito(true)"));
-  assert.ok(salvar.includes('from("ft_historico").insert('));
-  assert.ok(salvar.includes("descreverCorrecao(ft, patch)"));
+  assert.ok(!salvar.includes("ft_historico"), "histórico gravado por trigger (tg_ft_registrar_correcao), não pelo cliente");
   assert.ok(tela.includes("{isPending && isGestor && (\n          <div className=\"space-y-4\">"), "editor só para gestor e FT pendente");
 });

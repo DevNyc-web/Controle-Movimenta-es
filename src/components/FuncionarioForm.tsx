@@ -2,6 +2,8 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { EMPRESAS } from "@/lib/empresas";
+import { formatarData, mensagemRegra, STATUS_LABEL, statusDe } from "@/lib/funcionario-status";
+import { cpfDaCelula, cpfValido } from "@/lib/importacao-funcionarios";
 
 const CARGOS = ["Vigilante", "Porteiro", "ASG", "Recepcionista", "Manutencista", "Freelancer"];
 const VALORES: Record<string, number> = {
@@ -21,17 +23,26 @@ export function FuncionarioForm({ initial, onDone }: Props) {
     usa_banco_horas: initial?.usa_banco_horas ?? false,
     status: initial?.status ?? "ativo",
   });
+  // CPF só na criação; depois, só pela correção com justificativa (detalhes do funcionário).
+  const [cpf, setCpf] = useState("");
+  const cpfInvalido = !initial && cpf.trim() !== "" && !cpfValido(cpfDaCelula(cpf));
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (cpfInvalido) return void toast.error("CPF inválido.");
+    if (form.status === "inativo" && initial?.status !== "inativo"
+      && !confirm(`Inativar ${form.nome}? O funcionário deixa de aparecer em novos lançamentos. As movimentações antigas são preservadas.`)) return;
     setLoading(true);
-    const payload: any = { ...form, empresa: form.empresa || null, status_ativo: form.status === "ativo" };
+    // status_ativo, data_inativacao e inativado_por são definidos pelo banco.
+    const payload: any = { ...form, empresa: form.empresa || null, ...(initial ? {} : { cpf: cpf.trim() ? cpfDaCelula(cpf) : null }) };
+    // Formulário aberto há tempo não pode reescrever o status: só vai se o usuário mudou.
+    if (initial && form.status === initial.status) delete payload.status;
     const { error } = initial
       ? await supabase.from("funcionarios").update(payload).eq("id", initial.id)
       : await supabase.from("funcionarios").insert(payload);
     setLoading(false);
-    if (error) toast.error(error.message);
+    if (error) toast.error(/funcionarios_cpf_key/.test(error.message) ? "Este CPF já pertence a outro funcionário." : mensagemRegra(error.message));
     else { toast.success(initial ? "Funcionário atualizado" : "Funcionário cadastrado"); onDone(); }
   }
 
@@ -42,6 +53,8 @@ export function FuncionarioForm({ initial, onDone }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Field label="Nome completo" value={form.nome} onChange={set("nome")} required />
         <Field label="RE" value={form.re} onChange={set("re")} required />
+        {!initial && <Field label="CPF" value={cpf} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCpf(e.target.value)} />}
+        {cpfInvalido && <div className="md:col-span-2 text-xs text-amber-800">CPF inválido.</div>}
         <SelectField label="Empresa" value={form.empresa} onChange={set("empresa")}
           options={[{ value: "", label: "Não informada" }, ...(form.empresa && !(EMPRESAS as readonly string[]).includes(form.empresa) ? [form.empresa] : []), ...EMPRESAS]} />
         <SelectField label="Cargo" value={form.cargo} onChange={set("cargo")} options={CARGOS} />
@@ -50,8 +63,11 @@ export function FuncionarioForm({ initial, onDone }: Props) {
         <SelectField label="Banco de horas" value={form.usa_banco_horas ? "true" : "false"}
           onChange={(e: any) => setForm({ ...form, usa_banco_horas: e.target.value === "true" })}
           options={[{ value: "true", label: "Sim" }, { value: "false", label: "Não" }]} />
-        <SelectField label="Status" value={form.status} onChange={set("status")}
-          options={[{ value: "ativo", label: "Ativo" }, { value: "ferias", label: "De férias" }]} />
+        <SelectField label="Status" value={form.status} onChange={set("status")} disabled={initial?.status === "inativo"}
+          options={(initial ? (["ativo", "ferias", "inativo"] as const) : (["ativo", "ferias"] as const)).map((s) => ({ value: s, label: STATUS_LABEL[statusDe(s)] }))} />
+        {initial?.data_inativacao && (
+          <div className="md:col-span-2 text-xs text-oak-dark/60">Inativo desde {formatarData(initial.data_inativacao)}. Para reativar, use a ação Reativar na lista de funcionários.</div>
+        )}
         <div className="md:col-span-2 bg-sand/50 rounded-xl p-4 text-sm">
           <span className="text-oak-dark/60">Valor fixo da folga trabalhada para </span>
           <strong>{form.cargo}</strong>: <strong>R$ {VALORES[form.cargo]?.toFixed(2)}</strong>
@@ -77,12 +93,12 @@ function Field({ label, value, onChange, type = "text", required }: any) {
   );
 }
 
-function SelectField({ label, value, onChange, options }: any) {
+function SelectField({ label, value, onChange, options, disabled }: any) {
   const opts = (options as any[]).map((o) => (typeof o === "string" ? { value: o, label: o } : o));
   return (
     <div>
       <label className="text-[10px] font-bold text-oak-dark/60 uppercase tracking-widest">{label}</label>
-      <select value={value} onChange={onChange} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-oak-dark/20">
+      <select value={value} onChange={onChange} disabled={disabled} className="mt-2 w-full px-4 py-2.5 bg-sand rounded-xl text-sm border-none focus:outline-none focus:ring-2 focus:ring-oak-dark/20 disabled:opacity-60">
         {opts.map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>

@@ -14,16 +14,19 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AppUsuariosRouteImport } from './routes/_app.usuarios'
 import { Route as AppRelatoriosRouteImport } from './routes/_app.relatorios'
+import { Route as AppPagamentosRouteImport } from './routes/_app.pagamentos'
 import { Route as AppHistoricoRouteImport } from './routes/_app.historico'
 import { Route as AppAuditoriaRouteImport } from './routes/_app.auditoria'
 import { Route as AppAprovacoesRouteImport } from './routes/_app.aprovacoes'
 import { Route as AppFuncionariosIndexRouteImport } from './routes/_app.funcionarios.index'
 import { Route as AppFtIndexRouteImport } from './routes/_app.ft.index'
+import { Route as AppConferenciaIndexRouteImport } from './routes/_app.conferencia.index'
 import { Route as AppFuncionariosNovoRouteImport } from './routes/_app.funcionarios.novo'
 import { Route as AppFuncionariosImportarRouteImport } from './routes/_app.funcionarios.importar'
 import { Route as AppFuncionariosIdRouteImport } from './routes/_app.funcionarios.$id'
 import { Route as AppFtNovoRouteImport } from './routes/_app.ft.novo'
 import { Route as AppFtIdRouteImport } from './routes/_app.ft.$id'
+import { Route as AppConferenciaIdRouteImport } from './routes/_app.conferencia.$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -47,6 +50,11 @@ const AppUsuariosRoute = AppUsuariosRouteImport.update({
 const AppRelatoriosRoute = AppRelatoriosRouteImport.update({
   id: '/relatorios',
   path: '/relatorios',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPagamentosRoute = AppPagamentosRouteImport.update({
+  id: '/pagamentos',
+  path: '/pagamentos',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHistoricoRoute = AppHistoricoRouteImport.update({
@@ -74,6 +82,11 @@ const AppFtIndexRoute = AppFtIndexRouteImport.update({
   path: '/ft/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppConferenciaIndexRoute = AppConferenciaIndexRouteImport.update({
+  id: '/conferencia/',
+  path: '/conferencia/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFuncionariosNovoRoute = AppFuncionariosNovoRouteImport.update({
   id: '/funcionarios/novo',
   path: '/funcionarios/novo',
@@ -99,6 +112,11 @@ const AppFtIdRoute = AppFtIdRouteImport.update({
   path: '/ft/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppConferenciaIdRoute = AppConferenciaIdRouteImport.update({
+  id: '/conferencia/$id',
+  path: '/conferencia/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -106,13 +124,16 @@ export interface FileRoutesByFullPath {
   '/aprovacoes': typeof AppAprovacoesRoute
   '/auditoria': typeof AppAuditoriaRoute
   '/historico': typeof AppHistoricoRoute
+  '/pagamentos': typeof AppPagamentosRoute
   '/relatorios': typeof AppRelatoriosRoute
   '/usuarios': typeof AppUsuariosRoute
+  '/conferencia/$id': typeof AppConferenciaIdRoute
   '/ft/$id': typeof AppFtIdRoute
   '/ft/novo': typeof AppFtNovoRoute
   '/funcionarios/$id': typeof AppFuncionariosIdRoute
   '/funcionarios/importar': typeof AppFuncionariosImportarRoute
   '/funcionarios/novo': typeof AppFuncionariosNovoRoute
+  '/conferencia/': typeof AppConferenciaIndexRoute
   '/ft/': typeof AppFtIndexRoute
   '/funcionarios/': typeof AppFuncionariosIndexRoute
 }
@@ -121,14 +142,17 @@ export interface FileRoutesByTo {
   '/aprovacoes': typeof AppAprovacoesRoute
   '/auditoria': typeof AppAuditoriaRoute
   '/historico': typeof AppHistoricoRoute
+  '/pagamentos': typeof AppPagamentosRoute
   '/relatorios': typeof AppRelatoriosRoute
   '/usuarios': typeof AppUsuariosRoute
   '/': typeof AppIndexRoute
+  '/conferencia/$id': typeof AppConferenciaIdRoute
   '/ft/$id': typeof AppFtIdRoute
   '/ft/novo': typeof AppFtNovoRoute
   '/funcionarios/$id': typeof AppFuncionariosIdRoute
   '/funcionarios/importar': typeof AppFuncionariosImportarRoute
   '/funcionarios/novo': typeof AppFuncionariosNovoRoute
+  '/conferencia': typeof AppConferenciaIndexRoute
   '/ft': typeof AppFtIndexRoute
   '/funcionarios': typeof AppFuncionariosIndexRoute
 }
@@ -139,14 +163,17 @@ export interface FileRoutesById {
   '/_app/aprovacoes': typeof AppAprovacoesRoute
   '/_app/auditoria': typeof AppAuditoriaRoute
   '/_app/historico': typeof AppHistoricoRoute
+  '/_app/pagamentos': typeof AppPagamentosRoute
   '/_app/relatorios': typeof AppRelatoriosRoute
   '/_app/usuarios': typeof AppUsuariosRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/conferencia/$id': typeof AppConferenciaIdRoute
   '/_app/ft/$id': typeof AppFtIdRoute
   '/_app/ft/novo': typeof AppFtNovoRoute
   '/_app/funcionarios/$id': typeof AppFuncionariosIdRoute
   '/_app/funcionarios/importar': typeof AppFuncionariosImportarRoute
   '/_app/funcionarios/novo': typeof AppFuncionariosNovoRoute
+  '/_app/conferencia/': typeof AppConferenciaIndexRoute
   '/_app/ft/': typeof AppFtIndexRoute
   '/_app/funcionarios/': typeof AppFuncionariosIndexRoute
 }
@@ -158,13 +185,16 @@ export interface FileRouteTypes {
     | '/aprovacoes'
     | '/auditoria'
     | '/historico'
+    | '/pagamentos'
     | '/relatorios'
     | '/usuarios'
+    | '/conferencia/$id'
     | '/ft/$id'
     | '/ft/novo'
     | '/funcionarios/$id'
     | '/funcionarios/importar'
     | '/funcionarios/novo'
+    | '/conferencia/'
     | '/ft/'
     | '/funcionarios/'
   fileRoutesByTo: FileRoutesByTo
@@ -173,14 +203,17 @@ export interface FileRouteTypes {
     | '/aprovacoes'
     | '/auditoria'
     | '/historico'
+    | '/pagamentos'
     | '/relatorios'
     | '/usuarios'
     | '/'
+    | '/conferencia/$id'
     | '/ft/$id'
     | '/ft/novo'
     | '/funcionarios/$id'
     | '/funcionarios/importar'
     | '/funcionarios/novo'
+    | '/conferencia'
     | '/ft'
     | '/funcionarios'
   id:
@@ -190,14 +223,17 @@ export interface FileRouteTypes {
     | '/_app/aprovacoes'
     | '/_app/auditoria'
     | '/_app/historico'
+    | '/_app/pagamentos'
     | '/_app/relatorios'
     | '/_app/usuarios'
     | '/_app/'
+    | '/_app/conferencia/$id'
     | '/_app/ft/$id'
     | '/_app/ft/novo'
     | '/_app/funcionarios/$id'
     | '/_app/funcionarios/importar'
     | '/_app/funcionarios/novo'
+    | '/_app/conferencia/'
     | '/_app/ft/'
     | '/_app/funcionarios/'
   fileRoutesById: FileRoutesById
@@ -244,6 +280,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRelatoriosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/pagamentos': {
+      id: '/_app/pagamentos'
+      path: '/pagamentos'
+      fullPath: '/pagamentos'
+      preLoaderRoute: typeof AppPagamentosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/historico': {
       id: '/_app/historico'
       path: '/historico'
@@ -277,6 +320,13 @@ declare module '@tanstack/react-router' {
       path: '/ft'
       fullPath: '/ft/'
       preLoaderRoute: typeof AppFtIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/conferencia/': {
+      id: '/_app/conferencia/'
+      path: '/conferencia'
+      fullPath: '/conferencia/'
+      preLoaderRoute: typeof AppConferenciaIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/funcionarios/novo': {
@@ -314,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFtIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/conferencia/$id': {
+      id: '/_app/conferencia/$id'
+      path: '/conferencia/$id'
+      fullPath: '/conferencia/$id'
+      preLoaderRoute: typeof AppConferenciaIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -321,14 +378,17 @@ interface AppRouteChildren {
   AppAprovacoesRoute: typeof AppAprovacoesRoute
   AppAuditoriaRoute: typeof AppAuditoriaRoute
   AppHistoricoRoute: typeof AppHistoricoRoute
+  AppPagamentosRoute: typeof AppPagamentosRoute
   AppRelatoriosRoute: typeof AppRelatoriosRoute
   AppUsuariosRoute: typeof AppUsuariosRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppConferenciaIdRoute: typeof AppConferenciaIdRoute
   AppFtIdRoute: typeof AppFtIdRoute
   AppFtNovoRoute: typeof AppFtNovoRoute
   AppFuncionariosIdRoute: typeof AppFuncionariosIdRoute
   AppFuncionariosImportarRoute: typeof AppFuncionariosImportarRoute
   AppFuncionariosNovoRoute: typeof AppFuncionariosNovoRoute
+  AppConferenciaIndexRoute: typeof AppConferenciaIndexRoute
   AppFtIndexRoute: typeof AppFtIndexRoute
   AppFuncionariosIndexRoute: typeof AppFuncionariosIndexRoute
 }
@@ -337,14 +397,17 @@ const AppRouteChildren: AppRouteChildren = {
   AppAprovacoesRoute: AppAprovacoesRoute,
   AppAuditoriaRoute: AppAuditoriaRoute,
   AppHistoricoRoute: AppHistoricoRoute,
+  AppPagamentosRoute: AppPagamentosRoute,
   AppRelatoriosRoute: AppRelatoriosRoute,
   AppUsuariosRoute: AppUsuariosRoute,
   AppIndexRoute: AppIndexRoute,
+  AppConferenciaIdRoute: AppConferenciaIdRoute,
   AppFtIdRoute: AppFtIdRoute,
   AppFtNovoRoute: AppFtNovoRoute,
   AppFuncionariosIdRoute: AppFuncionariosIdRoute,
   AppFuncionariosImportarRoute: AppFuncionariosImportarRoute,
   AppFuncionariosNovoRoute: AppFuncionariosNovoRoute,
+  AppConferenciaIndexRoute: AppConferenciaIndexRoute,
   AppFtIndexRoute: AppFtIndexRoute,
   AppFuncionariosIndexRoute: AppFuncionariosIndexRoute,
 }

@@ -1,8 +1,7 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/integrations/supabase/client";
 import {
   listUsers,
   createUser,
@@ -22,11 +21,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+// Sem beforeLoad: no SSR não há sessão (fica no navegador) e ele redirecionava F5/URL para /login → Dashboard.
+// A sessão é exigida pelo AppGuard de _app.tsx; o acesso, pelo isGestor da página e pelas funções do servidor.
 export const Route = createFileRoute("/_app/usuarios")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/login" });
-  },
   component: UsuariosPage,
 });
 
